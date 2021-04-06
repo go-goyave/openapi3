@@ -7,10 +7,7 @@ import (
 	"goyave.dev/goyave/v3/validation"
 )
 
-type ValidationConverter struct {
-	refs *Refs
-}
-
+// ConvertToBody convert validation.Rules to OpenAPI RequestBody.
 func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 	if rules == nil {
 		return nil
@@ -49,6 +46,7 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 	}
 }
 
+// ConvertToQuery convert validation.Rules to OpenAPI query Parameters.
 func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 	if rules == nil {
 		return nil
@@ -68,6 +66,7 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 	return parameters
 }
 
+// SchemaFromField convert a validation.Field to OpenAPI Schema.
 func SchemaFromField(field *validation.Field) *openapi3.Schema {
 	// TODO save schema ref to refs
 	s := openapi3.NewSchema()
@@ -100,14 +99,20 @@ func SchemaFromField(field *validation.Field) *openapi3.Schema {
 	return s
 }
 
+// HasFile returns true if the given set of rules contains at least
+// one "file" rule.
 func HasFile(rules *validation.Rules) bool {
 	return Has(rules, "file")
 }
 
+// HasRequired returns true if the given set of rules contains at least
+// one "required" rule.
 func HasRequired(rules *validation.Rules) bool {
 	return Has(rules, "required")
 }
 
+// Has returns true if the given set of rules contains at least
+// one rule having the given name.
 func Has(rules *validation.Rules, ruleName string) bool {
 	for _, f := range rules.Fields {
 		for _, r := range f.Rules {
@@ -119,6 +124,8 @@ func Has(rules *validation.Rules, ruleName string) bool {
 	return false
 }
 
+// HasOnlyOptionalFiles returns true if the given set of rules doesn't contain
+// any required "file" rule.
 func HasOnlyOptionalFiles(rules *validation.Rules) bool {
 	for _, f := range rules.Fields {
 		for _, r := range f.Rules {
