@@ -17,7 +17,10 @@ import (
 	"goyave.dev/openapi3/validation"
 )
 
-var urlParamFormat = regexp.MustCompile(`{\w+(:.+?)?}`)
+var (
+	urlParamFormat        = regexp.MustCompile(`{\w+(:.+?)?}`)
+	refInvalidCharsFormat = regexp.MustCompile(`[^A-Za-z0-9-._]`)
+)
 
 type RouteConverter struct {
 	route       *goyave.Route
@@ -133,8 +136,9 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 				op.RequestBody = cached
 			} else {
 				requestBody := validation.ConvertToBody(rules)
-				spec.Components.RequestBodies[c.name] = requestBody // TODO correct ref name
-				requestBodyRef := &openapi3.RequestBodyRef{Ref: "#/components/requestBodies/" + c.name}
+				refName := c.rulesRefName()
+				spec.Components.RequestBodies[refName] = requestBody
+				requestBodyRef := &openapi3.RequestBodyRef{Ref: "#/components/requestBodies/" + refName}
 				c.refs.RequestBodies[rules] = requestBodyRef
 				op.RequestBody = requestBodyRef
 			}
@@ -143,6 +147,10 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 			op.Parameters = append(op.Parameters, validation.ConvertToQuery(rules)...)
 		}
 	}
+}
+
+func (c *RouteConverter) rulesRefName() string {
+	return refInvalidCharsFormat.ReplaceAllString(c.name[strings.LastIndex(c.name, "/")+1:], "")
 }
 
 func (c *RouteConverter) readDescription() (string, string) {
