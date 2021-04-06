@@ -14,7 +14,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"goyave.dev/goyave/v3"
-	"goyave.dev/openapi3/validation"
 )
 
 var (
@@ -139,7 +138,7 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 			if cached, ok := c.refs.RequestBodies[rules]; ok {
 				op.RequestBody = cached
 			} else {
-				requestBody := validation.ConvertToBody(rules)
+				requestBody := ConvertToBody(rules)
 				refName := c.rulesRefName()
 				spec.Components.RequestBodies[refName] = requestBody
 				requestBodyRef := &openapi3.RequestBodyRef{Ref: "#/components/requestBodies/" + refName}
@@ -148,7 +147,7 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 			}
 		} else {
 			// TODO use refs for query params
-			op.Parameters = append(op.Parameters, validation.ConvertToQuery(rules)...)
+			op.Parameters = append(op.Parameters, ConvertToQuery(rules)...)
 		}
 	}
 }
