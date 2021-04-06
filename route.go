@@ -22,6 +22,7 @@ var (
 	refInvalidCharsFormat = regexp.MustCompile(`[^A-Za-z0-9-._]`)
 )
 
+// RouteConverter converts goyave.Route to OpenAPI operations.
 type RouteConverter struct {
 	route       *goyave.Route
 	refs        *Refs
@@ -31,6 +32,8 @@ type RouteConverter struct {
 	name        string
 }
 
+// NewRouteConverter create a new RouteConverter using the given Route as input.
+// The converter will use and fill the given Refs.
 func NewRouteConverter(route *goyave.Route, refs *Refs) *RouteConverter {
 	return &RouteConverter{
 		route: route,
@@ -38,6 +41,7 @@ func NewRouteConverter(route *goyave.Route, refs *Refs) *RouteConverter {
 	}
 }
 
+// Convert route to OpenAPI operations and adds the results to the given spec.
 func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
 	c.uri = c.cleanPath(c.route)
 	c.tag = c.uriToTag(c.uri)

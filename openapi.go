@@ -9,17 +9,27 @@ import (
 	"goyave.dev/goyave/v3/config"
 )
 
+// Generator for OpenAPI 3 specification based on Router.
 type Generator struct {
 	spec *openapi3.Swagger
 	refs *Refs
 }
 
+// NewGenerator create a new OpenAPI 3 specification Generator.
 func NewGenerator() *Generator {
 	return &Generator{
 		refs: NewRefs(),
 	}
 }
 
+// Generate an OpenAPI 3 specification based on the given Router.
+//
+// Goyave config will be loaded (if not already).
+//
+// The Info section is pre-filled with version 0.0.0 and the app name, fetched
+// from the config.
+// Servers section will be filled using the configuration as well, thanks to the
+// goyave.BaseURL() function.
 func (g *Generator) Generate(router *goyave.Router) *openapi3.Swagger {
 	if err := loadConfig(); err != nil {
 		fmt.Println(err)
