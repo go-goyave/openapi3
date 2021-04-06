@@ -47,6 +47,7 @@ func (g *Generator) Generate(router *goyave.Router) *openapi3.Swagger {
 			Schemas:       make(openapi3.Schemas),
 			RequestBodies: make(openapi3.RequestBodies),
 			Responses:     make(openapi3.Responses),
+			Parameters:    make(openapi3.ParametersMap),
 		},
 	}
 

@@ -137,22 +137,37 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 		if canHaveBody(method) {
 			if cached, ok := c.refs.RequestBodies[rules]; ok {
 				op.RequestBody = cached
-			} else {
-				requestBody := ConvertToBody(rules)
-				refName := c.rulesRefName()
-				spec.Components.RequestBodies[refName] = requestBody
-				requestBodyRef := &openapi3.RequestBodyRef{Ref: "#/components/requestBodies/" + refName}
-				c.refs.RequestBodies[rules] = requestBodyRef
-				op.RequestBody = requestBodyRef
+				return
 			}
+			requestBody := ConvertToBody(rules)
+			refName := c.rulesRefName()
+			spec.Components.RequestBodies[refName] = requestBody
+			requestBodyRef := &openapi3.RequestBodyRef{Ref: "#/components/requestBodies/" + refName}
+			c.refs.RequestBodies[rules] = requestBodyRef
+			op.RequestBody = requestBodyRef
 		} else {
-			// TODO use refs for query params
-			op.Parameters = append(op.Parameters, ConvertToQuery(rules)...)
+			if cached, ok := c.refs.Parameters[rules]; ok {
+				op.Parameters = append(op.Parameters, cached...)
+				return
+			}
+			refName := c.rulesRefName() + "-query-"
+			query := ConvertToQuery(rules)
+			c.refs.Parameters[rules] = make([]*openapi3.ParameterRef, 0, len(query))
+			for _, p := range query {
+				paramRefName := refName + p.Value.Name
+				spec.Components.Parameters[paramRefName] = p
+
+				ref := &openapi3.ParameterRef{Ref: "#/components/parameters/" + paramRefName}
+				c.refs.Parameters[rules] = append(c.refs.Parameters[rules], ref)
+				op.Parameters = append(op.Parameters, ref)
+			}
+
 		}
 	}
 }
 
 func (c *RouteConverter) rulesRefName() string {
+	// TODO this is using the name of the first route using a ref, which can be wrong sometimes
 	return refInvalidCharsFormat.ReplaceAllString(c.name[strings.LastIndex(c.name, "/")+1:], "")
 }
 
