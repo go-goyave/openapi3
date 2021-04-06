@@ -69,7 +69,7 @@ func (c *RouteConverter) convertOperation(method string, spec *openapi3.Swagger)
 
 func (c *RouteConverter) cleanPath(route *goyave.Route) string {
 	// Regex are not allowed in URI, generate it without format definition
-	params := route.GetParameters() // FIXME doesn't work if parents have parameters
+	_, params := route.GetFullURIAndParameters()
 	bracedParams := make([]string, 0, len(params))
 	for _, p := range params {
 		bracedParams = append(bracedParams, "{"+p+"}")
@@ -93,8 +93,9 @@ func (c *RouteConverter) uriToTag(uri string) string {
 
 func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem) {
 	// TODO path parameters schemas
-	formats := urlParamFormat.FindAllStringSubmatch(c.route.GetFullURI(), -1)
-	for i, p := range c.route.GetParameters() { // FIXME doesn't work if parent router has parameter
+	uri, params := c.route.GetFullURIAndParameters()
+	formats := urlParamFormat.FindAllStringSubmatch(uri, -1)
+	for i, p := range params {
 		if c.parameterExists(path, p) {
 			continue
 		}
