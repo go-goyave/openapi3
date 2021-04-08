@@ -53,7 +53,7 @@ func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
 		spec.AddOperation(c.uri, m, c.convertOperation(m, spec))
 	}
 
-	c.convertPathParameters(spec.Paths[c.uri])
+	c.convertPathParameters(spec.Paths[c.uri], spec)
 }
 
 func (c *RouteConverter) convertOperation(method string, spec *openapi3.Swagger) *openapi3.Operation {
@@ -100,8 +100,7 @@ func (c *RouteConverter) uriToTag(uri string) string {
 	return tag
 }
 
-func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem) {
-	// TODO path parameters schemas
+func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *openapi3.Swagger) {
 	uri, params := c.route.GetFullURIAndParameters()
 	formats := urlParamFormat.FindAllStringSubmatch(uri, -1)
 	for i, p := range params {
@@ -109,21 +108,36 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem) {
 			continue
 		}
 		param := openapi3.NewPathParameter(p)
-		schema := openapi3.NewStringSchema()
+
+		format := ""
 		if len(formats[i]) == 2 {
-			schema.Pattern = formats[i][1]
-			if schema.Pattern != "" {
-				// Strip the colon
-				schema.Pattern = schema.Pattern[1:]
-			}
-			if schema.Pattern == "[0-9]+" {
-				schema.Type = "integer"
-			}
+			format = formats[i][1]
 		}
-		param.Schema = &openapi3.SchemaRef{Value: schema} // TODO use refs and save them in Refs
+		schemaRef := c.getParamSchema(p, format, spec)
+		param.Schema = schemaRef
 		ref := &openapi3.ParameterRef{Value: param}
 		path.Parameters = append(path.Parameters, ref)
 	}
+}
+
+func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3.Swagger) *openapi3.SchemaRef {
+	schema := openapi3.NewStringSchema()
+	schema.Pattern = format
+	schemaName := "param" + strings.Title(paramName)
+	if format != "" {
+		// Strip the colon
+		schema.Pattern = schema.Pattern[1:]
+		if schema.Pattern == "[0-9]+" {
+			schema.Type = "integer"
+			schemaName = "paramInteger"
+		}
+	} else {
+		schemaName = "paramString"
+	}
+	spec.Components.Schemas[schemaName] = &openapi3.SchemaRef{Value: schema}
+	schemaRef := &openapi3.SchemaRef{Ref: "#/components/schemas/" + schemaName}
+	c.refs.ParamSchemas[schema.Pattern] = schemaRef
+	return schemaRef
 }
 
 func (c *RouteConverter) parameterExists(path *openapi3.PathItem, param string) bool {

@@ -9,6 +9,7 @@ import (
 // to avoid generating them multiple times and allow the use of OpenAPI components.
 type Refs struct {
 	Schemas       map[*validation.Rules]*openapi3.SchemaRef
+	ParamSchemas  map[string]*openapi3.SchemaRef
 	FieldSchemas  map[*validation.Field]*openapi3.SchemaRef
 	Parameters    map[*validation.Rules][]*openapi3.ParameterRef
 	RequestBodies map[*validation.Rules]*openapi3.RequestBodyRef
@@ -18,6 +19,7 @@ type Refs struct {
 func NewRefs() *Refs {
 	return &Refs{
 		Schemas:       make(map[*validation.Rules]*openapi3.SchemaRef),
+		ParamSchemas:  make(map[string]*openapi3.SchemaRef),
 		FieldSchemas:  make(map[*validation.Field]*openapi3.SchemaRef),
 		Parameters:    make(map[*validation.Rules][]*openapi3.ParameterRef),
 		RequestBodies: make(map[*validation.Rules]*openapi3.RequestBodyRef),
