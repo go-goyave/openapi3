@@ -104,19 +104,28 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *op
 	uri, params := c.route.GetFullURIAndParameters()
 	formats := urlParamFormat.FindAllStringSubmatch(uri, -1)
 	for i, p := range params {
-		if c.parameterExists(path, p) {
-			continue
-		}
-		param := openapi3.NewPathParameter(p)
-
 		format := ""
 		if len(formats[i]) == 2 {
 			format = formats[i][1]
 		}
 		schemaRef := c.getParamSchema(p, format, spec)
+		identifier := parameterIdentifier{p, schemaRef}
+
+		if paramRef, ok := c.refs.Parameters[identifier]; ok {
+			if c.parameterExists(path, paramRef) {
+				continue
+			}
+			path.Parameters = append(path.Parameters, paramRef)
+			continue
+		}
+
+		param := openapi3.NewPathParameter(p)
 		param.Schema = schemaRef
-		ref := &openapi3.ParameterRef{Value: param}
-		path.Parameters = append(path.Parameters, ref)
+		// FIXME what if same name but different schema?
+		spec.Components.Parameters[p] = &openapi3.ParameterRef{Value: param}
+		paramRef := &openapi3.ParameterRef{Ref: "#/components/parameters/" + p}
+		c.refs.Parameters[identifier] = paramRef
+		path.Parameters = append(path.Parameters, paramRef)
 	}
 }
 
@@ -134,15 +143,19 @@ func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3
 	} else {
 		schemaName = "paramString"
 	}
+	if cached, ok := c.refs.ParamSchemas[schemaName]; ok {
+		return cached
+	}
+
 	spec.Components.Schemas[schemaName] = &openapi3.SchemaRef{Value: schema}
 	schemaRef := &openapi3.SchemaRef{Ref: "#/components/schemas/" + schemaName}
-	c.refs.ParamSchemas[schema.Pattern] = schemaRef
+	c.refs.ParamSchemas[schemaName] = schemaRef
 	return schemaRef
 }
 
-func (c *RouteConverter) parameterExists(path *openapi3.PathItem, param string) bool {
-	for _, p := range path.Parameters { // TODO if refs used?
-		if p.Value.Name == param {
+func (c *RouteConverter) parameterExists(path *openapi3.PathItem, ref *openapi3.ParameterRef) bool {
+	for _, p := range path.Parameters {
+		if p.Ref == ref.Ref {
 			return true
 		}
 	}
@@ -163,19 +176,19 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 			c.refs.RequestBodies[rules] = requestBodyRef
 			op.RequestBody = requestBodyRef
 		} else {
-			if cached, ok := c.refs.Parameters[rules]; ok {
+			if cached, ok := c.refs.QueryParameters[rules]; ok {
 				op.Parameters = append(op.Parameters, cached...)
 				return
 			}
 			refName := c.rulesRefName() + "-query-"
 			query := ConvertToQuery(rules)
-			c.refs.Parameters[rules] = make([]*openapi3.ParameterRef, 0, len(query))
+			c.refs.QueryParameters[rules] = make([]*openapi3.ParameterRef, 0, len(query))
 			for _, p := range query {
 				paramRefName := refName + p.Value.Name
 				spec.Components.Parameters[paramRefName] = p
 
 				ref := &openapi3.ParameterRef{Ref: "#/components/parameters/" + paramRefName}
-				c.refs.Parameters[rules] = append(c.refs.Parameters[rules], ref)
+				c.refs.QueryParameters[rules] = append(c.refs.QueryParameters[rules], ref)
 				op.Parameters = append(op.Parameters, ref)
 			}
 
