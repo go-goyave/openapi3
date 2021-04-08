@@ -92,7 +92,10 @@ func (c *RouteConverter) uriToTag(uri string) string {
 	} else {
 		tag = uri[1:]
 	}
-	// TODO what if the first segment is a parameter?
+	if len(tag) > 2 && tag[0] == '{' && tag[len(tag)-1] == '}' {
+		// The first segment is a parameter
+		return ""
+	}
 
 	return tag
 }
