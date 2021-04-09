@@ -107,44 +107,63 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *op
 		format := ""
 		if len(formats[i]) == 2 {
 			format = formats[i][1]
+			if format != "" {
+				format = format[1:] // Strip the colon
+			}
 		}
 		schemaRef := c.getParamSchema(p, format, spec)
-		identifier := parameterIdentifier{p, schemaRef}
 
-		if paramRef, ok := c.refs.Parameters[identifier]; ok {
-			if c.parameterExists(path, paramRef) {
-				continue
+		paramName := p
+		i := 1
+		for {
+			if paramRef, ok := c.refs.Parameters[paramName]; ok {
+				if param, exists := spec.Components.Parameters[paramName]; exists && param.Value.Schema.Ref != schemaRef.Ref {
+					i++
+					paramName = fmt.Sprintf("%s.%d", p, i)
+					continue
+				}
+				if c.parameterExists(path, paramRef) {
+					break
+				}
+				path.Parameters = append(path.Parameters, paramRef)
+				break
+			} else {
+				param := openapi3.NewPathParameter(p)
+				param.Schema = schemaRef
+				spec.Components.Parameters[paramName] = &openapi3.ParameterRef{Value: param}
+				paramRef := &openapi3.ParameterRef{Ref: "#/components/parameters/" + paramName}
+				c.refs.Parameters[paramName] = paramRef
+				path.Parameters = append(path.Parameters, paramRef)
+				break
 			}
-			path.Parameters = append(path.Parameters, paramRef)
-			continue
 		}
-
-		param := openapi3.NewPathParameter(p)
-		param.Schema = schemaRef
-		// FIXME what if same name but different schema?
-		spec.Components.Parameters[p] = &openapi3.ParameterRef{Value: param}
-		paramRef := &openapi3.ParameterRef{Ref: "#/components/parameters/" + p}
-		c.refs.Parameters[identifier] = paramRef
-		path.Parameters = append(path.Parameters, paramRef)
 	}
 }
 
 func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3.Swagger) *openapi3.SchemaRef {
 	schema := openapi3.NewStringSchema()
 	schema.Pattern = format
-	schemaName := "param" + strings.Title(paramName)
-	if format != "" {
-		// Strip the colon
-		schema.Pattern = schema.Pattern[1:]
-		if schema.Pattern == "[0-9]+" {
-			schema.Type = "integer"
-			schemaName = "paramInteger"
-		}
-	} else {
+	originalSchemaName := "param" + strings.Title(paramName)
+	schemaName := originalSchemaName
+	if format == "" {
 		schemaName = "paramString"
+	} else if format == "[0-9]+" {
+		schema.Type = "integer"
+		schemaName = "paramInteger"
 	}
-	if cached, ok := c.refs.ParamSchemas[schemaName]; ok {
-		return cached
+
+	i := 1
+	for {
+		if cached, ok := c.refs.ParamSchemas[schemaName]; ok {
+			if s, exists := spec.Components.Schemas[schemaName]; exists && (s.Value.Pattern != format || s.Value.Type != schema.Type) {
+				i++
+				schemaName = fmt.Sprintf("%s.%d", originalSchemaName, i)
+				continue
+			} else {
+				return cached
+			}
+		}
+		break
 	}
 
 	spec.Components.Schemas[schemaName] = &openapi3.SchemaRef{Value: schema}
