@@ -249,6 +249,8 @@ func (c *RouteConverter) readDescription() (string, string) {
 
 	var doc *ast.CommentGroup
 
+	fmt.Println(file, funcName)
+
 	// TODO optimize, this re-inspects the whole file for each route. Maybe cache already inspected files
 	ast.Inspect(f, func(n ast.Node) bool {
 		// Example output of "funcName" value for controller: goyave.dev/goyave/v3/auth.(*JWTController).Login-fm
@@ -256,18 +258,27 @@ func (c *RouteConverter) readDescription() (string, string) {
 		if ok {
 			if fn.Recv != nil {
 				for _, f := range fn.Recv.List {
-					if expr, ok := f.Type.(*ast.StarExpr); ok {
+					strct := ""
+					switch expr := f.Type.(type) {
+					case *ast.StarExpr:
 						if id, ok := expr.X.(*ast.Ident); ok {
-							strct := fmt.Sprintf("(*%s)", id.Name) // TODO handle expr without star (no ptr)
-							name := funcName[:len(funcName)-3]     // strip -fm suffix
-							expectedName := strct + "." + fn.Name.Name
-							if name[len(name)-len(expectedName):] == expectedName {
-								doc = fn.Doc
-								return false
-							}
+							strct = fmt.Sprintf("(*%s)", id.Name)
+						} else {
+							continue
 						}
+					case *ast.Ident:
+						strct = expr.Name
+					default:
+						continue
+					}
+					name := funcName[:len(funcName)-3] // strip -fm suffix
+					expectedName := strct + "." + fn.Name.Name
+					if name[len(name)-len(expectedName):] == expectedName {
+						doc = fn.Doc
+						return false
 					}
 				}
+				return true
 			}
 			lastIndex := strings.LastIndex(funcName, ".")
 			if funcName[lastIndex+1:] == fn.Name.Name {
