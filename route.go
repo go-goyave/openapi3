@@ -19,6 +19,7 @@ import (
 var (
 	urlParamFormat        = regexp.MustCompile(`{\w+(:.+?)?}`)
 	refInvalidCharsFormat = regexp.MustCompile(`[^A-Za-z0-9-._]`)
+	closureFormat         = regexp.MustCompile(`\.[a-zA-Z-]+\.func[0-9]+$`)
 )
 
 // RouteConverter converts goyave.Route to OpenAPI operations.
@@ -28,7 +29,7 @@ type RouteConverter struct {
 	uri         string
 	tag         string
 	description string
-	name        string
+	funcName    string
 }
 
 // NewRouteConverter create a new RouteConverter using the given Route as input.
@@ -44,12 +45,13 @@ func NewRouteConverter(route *goyave.Route, refs *Refs) *RouteConverter {
 func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
 	c.uri = c.cleanPath(c.route)
 	c.tag = c.uriToTag(c.uri)
-	c.name, c.description = c.readDescription()
+	c.funcName, c.description = c.readDescription()
 
 	for _, m := range c.route.GetMethods() {
 		if m == http.MethodHead || m == http.MethodOptions {
 			continue
 		}
+		// TODO don't add if operation already exists to reflect the exact routing behavior
 		spec.AddOperation(c.uri, m, c.convertOperation(m, spec))
 	}
 
@@ -217,16 +219,21 @@ func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Oper
 
 func (c *RouteConverter) rulesRefName() string {
 	// TODO this is using the name of the first route using a ref, which can be wrong sometimes
-	return refInvalidCharsFormat.ReplaceAllString(c.name[strings.LastIndex(c.name, "/")+1:], "")
+	return refInvalidCharsFormat.ReplaceAllString(c.funcName[strings.LastIndex(c.funcName, "/")+1:], "")
 }
 
 func (c *RouteConverter) readDescription() (string, string) {
 	// TODO cache ast too
 	pc := reflect.ValueOf(c.route.GetHandler()).Pointer()
 	handlerValue := runtime.FuncForPC(pc)
-	file, _ := handlerValue.FileLine(pc)
 	funcName := handlerValue.Name()
 
+	if closureFormat.MatchString(funcName) {
+		// Closures can't be documented, there's no need to parse AST
+		return "", ""
+	}
+
+	file, _ := handlerValue.FileLine(pc)
 	src, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
@@ -243,31 +250,29 @@ func (c *RouteConverter) readDescription() (string, string) {
 	var doc *ast.CommentGroup
 
 	// TODO optimize, this re-inspects the whole file for each route. Maybe cache already inspected files
-	ast.Inspect(f, func(n ast.Node) bool { // TODO what would it do with closures and implementations?
+	ast.Inspect(f, func(n ast.Node) bool {
 		// Example output of "funcName" value for controller: goyave.dev/goyave/v3/auth.(*JWTController).Login-fm
 		fn, ok := n.(*ast.FuncDecl)
 		if ok {
-			if fn.Name.IsExported() {
-				if fn.Recv != nil {
-					for _, f := range fn.Recv.List {
-						if expr, ok := f.Type.(*ast.StarExpr); ok {
-							if id, ok := expr.X.(*ast.Ident); ok {
-								strct := fmt.Sprintf("(*%s)", id.Name) // TODO handle expr without star (no ptr)
-								name := funcName[:len(funcName)-3]     // strip -fm
-								expectedName := strct + "." + fn.Name.Name
-								if name[len(name)-len(expectedName):] == expectedName {
-									doc = fn.Doc
-									return false
-								}
+			if fn.Recv != nil {
+				for _, f := range fn.Recv.List {
+					if expr, ok := f.Type.(*ast.StarExpr); ok {
+						if id, ok := expr.X.(*ast.Ident); ok {
+							strct := fmt.Sprintf("(*%s)", id.Name) // TODO handle expr without star (no ptr)
+							name := funcName[:len(funcName)-3]     // strip -fm suffix
+							expectedName := strct + "." + fn.Name.Name
+							if name[len(name)-len(expectedName):] == expectedName {
+								doc = fn.Doc
+								return false
 							}
 						}
 					}
 				}
-				lastIndex := strings.LastIndex(funcName, ".")
-				if funcName[lastIndex+1:] == fn.Name.Name {
-					doc = fn.Doc
-					return false
-				}
+			}
+			lastIndex := strings.LastIndex(funcName, ".")
+			if funcName[lastIndex+1:] == fn.Name.Name {
+				doc = fn.Doc
+				return false
 			}
 		}
 		return true
