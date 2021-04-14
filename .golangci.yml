@@ -13,7 +13,7 @@ linters:
     - gocyclo
     - misspell
     - bodyclose
-    - maligned
+    - fieldalignment
     - errcheck
   disable-all: false
   fast: false
