@@ -51,11 +51,45 @@ func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
 		if m == http.MethodHead || m == http.MethodOptions {
 			continue
 		}
-		// TODO don't add if operation already exists to reflect the exact routing behavior
-		spec.AddOperation(c.uri, m, c.convertOperation(m, spec))
+		if !c.operationExists(spec, c.uri, m) {
+			spec.AddOperation(c.uri, m, c.convertOperation(m, spec))
+		}
 	}
 
 	c.convertPathParameters(spec.Paths[c.uri], spec)
+}
+
+func (c *RouteConverter) operationExists(spec *openapi3.Swagger, path, method string) bool {
+	if spec.Paths == nil {
+		return false
+	}
+	pathItem := spec.Paths[path]
+	if pathItem == nil {
+		return false
+	}
+
+	switch method {
+	case http.MethodConnect:
+		return pathItem.Connect != nil
+	case http.MethodDelete:
+		return pathItem.Delete != nil
+	case http.MethodGet:
+		return pathItem.Get != nil
+	case http.MethodHead:
+		return pathItem.Head != nil
+	case http.MethodOptions:
+		return pathItem.Options != nil
+	case http.MethodPatch:
+		return pathItem.Patch != nil
+	case http.MethodPost:
+		return pathItem.Post != nil
+	case http.MethodPut:
+		return pathItem.Put != nil
+	case http.MethodTrace:
+		return pathItem.Trace != nil
+	default:
+		panic(fmt.Errorf("unsupported HTTP method %q", method))
+	}
 }
 
 func (c *RouteConverter) convertOperation(method string, spec *openapi3.Swagger) *openapi3.Operation {
@@ -248,8 +282,6 @@ func (c *RouteConverter) readDescription() (string, string) {
 	}
 
 	var doc *ast.CommentGroup
-
-	fmt.Println(file, funcName)
 
 	// TODO optimize, this re-inspects the whole file for each route. Maybe cache already inspected files
 	ast.Inspect(f, func(n ast.Node) bool {

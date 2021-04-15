@@ -1,3 +1,7 @@
+run:
+  skip-dirs:
+    - .github
+
 linters-settings:
   gocyclo:
     min-complexity: 15
