@@ -257,34 +257,25 @@ func (c *RouteConverter) rulesRefName() string {
 }
 
 func (c *RouteConverter) readDescription() (string, string) {
-	// TODO cache ast too
 	pc := reflect.ValueOf(c.route.GetHandler()).Pointer()
+	if cached, ok := c.refs.HandlerDocs[pc]; ok {
+		return cached.FuncName, cached.Description
+	}
 	handlerValue := runtime.FuncForPC(pc)
 	funcName := handlerValue.Name()
 
 	if closureFormat.MatchString(funcName) {
 		// Closures can't be documented, there's no need to parse AST
+		c.refs.HandlerDocs[pc] = &HandlerDoc{"", ""}
 		return "", ""
 	}
 
 	file, _ := handlerValue.FileLine(pc)
-	src, err := os.ReadFile(file)
-	if err != nil {
-		panic(err)
-	}
-
-	fset := token.NewFileSet() // positions are relative to fset
-
-	f, err := parser.ParseFile(fset, file, src, parser.ParseComments)
-
-	if err != nil {
-		panic(err)
-	}
+	astFile := c.getAST(file)
 
 	var doc *ast.CommentGroup
 
-	// TODO optimize, this re-inspects the whole file for each route. Maybe cache already inspected files
-	ast.Inspect(f, func(n ast.Node) bool {
+	ast.Inspect(astFile, func(n ast.Node) bool {
 		// Example output of "funcName" value for controller: goyave.dev/goyave/v3/auth.(*JWTController).Login-fm
 		fn, ok := n.(*ast.FuncDecl)
 		if ok {
@@ -322,8 +313,30 @@ func (c *RouteConverter) readDescription() (string, string) {
 	})
 
 	if doc != nil {
-		return funcName, strings.TrimSpace(doc.Text())
+		docs := strings.TrimSpace(doc.Text())
+		c.refs.HandlerDocs[pc] = &HandlerDoc{funcName, docs}
+		return funcName, docs
 	}
 
+	c.refs.HandlerDocs[pc] = &HandlerDoc{"", ""}
 	return "", ""
+}
+
+func (c *RouteConverter) getAST(file string) *ast.File {
+	astFile := c.refs.AST[file]
+	if astFile == nil {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			panic(err)
+		}
+
+		fset := token.NewFileSet() // positions are relative to fset
+
+		astFile, err = parser.ParseFile(fset, file, src, parser.ParseComments)
+		if err != nil {
+			panic(err)
+		}
+		c.refs.AST[file] = astFile
+	}
+	return astFile
 }

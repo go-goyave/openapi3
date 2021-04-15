@@ -1,6 +1,8 @@
 package openapi3
 
 import (
+	"go/ast"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"goyave.dev/goyave/v3/validation"
 )
@@ -14,6 +16,8 @@ type Refs struct {
 	FieldSchemas    map[*validation.Field]*openapi3.SchemaRef
 	QueryParameters map[*validation.Rules][]*openapi3.ParameterRef
 	RequestBodies   map[*validation.Rules]*openapi3.RequestBodyRef
+	AST             map[string]*ast.File
+	HandlerDocs     map[uintptr]*HandlerDoc
 }
 
 // NewRefs create a new Refs struct with initialized maps.
@@ -25,5 +29,13 @@ func NewRefs() *Refs {
 		FieldSchemas:    make(map[*validation.Field]*openapi3.SchemaRef),
 		QueryParameters: make(map[*validation.Rules][]*openapi3.ParameterRef),
 		RequestBodies:   make(map[*validation.Rules]*openapi3.RequestBodyRef),
+		AST:             make(map[string]*ast.File),
+		HandlerDocs:     make(map[uintptr]*HandlerDoc),
 	}
+}
+
+// HandlerDoc info extracted from AST about a Handler.
+type HandlerDoc struct {
+	FuncName    string
+	Description string
 }
