@@ -161,31 +161,50 @@ func ruleNameToType(name string) string {
 }
 
 func convertRule(r *validation.Rule, s *openapi3.Schema) {
-	// TODO minimum, maximum, string formats, arrays, uniqueItems (distinct)
+	// TODO string formats, arrays, uniqueItems (distinct)
 	// TODO better architecture
-	switch r.Name {
-	case "min":
-		switch s.Type {
-		case "string":
+
+	switch s.Type {
+	case "string":
+		switch r.Name {
+		case "min":
 			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
 			s.MinLength = min
-		case "number", "integer":
-			min, _ := strconv.ParseFloat(r.Params[0], 64)
-			s.Min = &min
-		case "array":
-			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			s.MinItems = min
-		}
-	case "max":
-		switch s.Type {
-		case "string":
+		case "max":
 			max, _ := strconv.ParseUint(r.Params[0], 10, 64)
 			s.MaxLength = &max
-		case "number", "integer":
+		case "between":
+			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+			max, _ := strconv.ParseUint(r.Params[1], 10, 64)
+			s.MinLength = min
+			s.MaxLength = &max
+		}
+	case "number", "integer":
+		switch r.Name {
+		case "min":
+			min, _ := strconv.ParseFloat(r.Params[0], 64)
+			s.Min = &min
+		case "max":
 			max, _ := strconv.ParseFloat(r.Params[0], 64)
 			s.Max = &max
-		case "array":
+		case "between":
+			min, _ := strconv.ParseFloat(r.Params[0], 64)
+			max, _ := strconv.ParseFloat(r.Params[1], 64)
+			s.Min = &min
+			s.Max = &max
+		}
+	case "array":
+		switch r.Name {
+		case "min":
+			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+			s.MinItems = min
+		case "max":
 			max, _ := strconv.ParseUint(r.Params[0], 10, 64)
+			s.MaxItems = &max
+		case "between":
+			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+			max, _ := strconv.ParseUint(r.Params[1], 10, 64)
+			s.MinItems = min
 			s.MaxItems = &max
 		}
 	}
