@@ -93,7 +93,7 @@ func SchemaFromField(field *validation.Field) *openapi3.Schema {
 	}
 
 	for _, r := range field.Rules {
-		convertRule(r, s)
+		ruleConverters[r.Name](r, s)
 	}
 	s.Nullable = field.IsNullable()
 	return s
@@ -160,52 +160,72 @@ func ruleNameToType(name string) string {
 	// TODO match type rules with correct openapi types defined in spec
 }
 
-func convertRule(r *validation.Rule, s *openapi3.Schema) {
+type RuleConverter func(r *validation.Rule, s *openapi3.Schema)
+
+var (
+	ruleConverters = map[string]RuleConverter{
+		"min": func(r *validation.Rule, s *openapi3.Schema) {
+			switch s.Type {
+			case "string":
+				min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MinLength = min
+			case "number", "integer":
+				min, _ := strconv.ParseFloat(r.Params[0], 64)
+				s.Min = &min
+			case "array":
+				min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MinItems = min
+			}
+		},
+		"max": func(r *validation.Rule, s *openapi3.Schema) {
+			switch s.Type {
+			case "string":
+				max, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MaxLength = &max
+			case "number", "integer":
+				max, _ := strconv.ParseFloat(r.Params[0], 64)
+				s.Max = &max
+			case "array":
+				max, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MaxItems = &max
+			}
+		},
+		"between": func(r *validation.Rule, s *openapi3.Schema) {
+			switch s.Type {
+			case "string":
+				min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				max, _ := strconv.ParseUint(r.Params[1], 10, 64)
+				s.MinLength = min
+				s.MaxLength = &max
+			case "number", "integer":
+				min, _ := strconv.ParseFloat(r.Params[0], 64)
+				max, _ := strconv.ParseFloat(r.Params[1], 64)
+				s.Min = &min
+				s.Max = &max
+			case "array":
+				min, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				max, _ := strconv.ParseUint(r.Params[1], 10, 64)
+				s.MinItems = min
+				s.MaxItems = &max
+			}
+		},
+		"size": func(r *validation.Rule, s *openapi3.Schema) {
+			switch s.Type {
+			case "string":
+				length, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MinLength = length
+				s.MaxLength = &length
+			case "number", "integer":
+				n, _ := strconv.ParseFloat(r.Params[0], 64)
+				s.Min = &n
+				s.Max = &n
+			case "array":
+				count, _ := strconv.ParseUint(r.Params[0], 10, 64)
+				s.MinItems = count
+				s.MaxItems = &count
+			}
+		},
+	}
 	// TODO string formats, arrays, uniqueItems (distinct)
 	// TODO better architecture
-
-	switch s.Type {
-	case "string":
-		switch r.Name {
-		case "min":
-			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			s.MinLength = min
-		case "max":
-			max, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			s.MaxLength = &max
-		case "between":
-			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			max, _ := strconv.ParseUint(r.Params[1], 10, 64)
-			s.MinLength = min
-			s.MaxLength = &max
-		}
-	case "number", "integer":
-		switch r.Name {
-		case "min":
-			min, _ := strconv.ParseFloat(r.Params[0], 64)
-			s.Min = &min
-		case "max":
-			max, _ := strconv.ParseFloat(r.Params[0], 64)
-			s.Max = &max
-		case "between":
-			min, _ := strconv.ParseFloat(r.Params[0], 64)
-			max, _ := strconv.ParseFloat(r.Params[1], 64)
-			s.Min = &min
-			s.Max = &max
-		}
-	case "array":
-		switch r.Name {
-		case "min":
-			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			s.MinItems = min
-		case "max":
-			max, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			s.MaxItems = &max
-		case "between":
-			min, _ := strconv.ParseUint(r.Params[0], 10, 64)
-			max, _ := strconv.ParseUint(r.Params[1], 10, 64)
-			s.MinItems = min
-			s.MaxItems = &max
-		}
-	}
-}
+)
