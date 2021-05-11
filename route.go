@@ -267,7 +267,7 @@ func (c *RouteConverter) readDescription() (string, string) {
 	if closureFormat.MatchString(funcName) {
 		// Closures can't be documented, there's no need to parse AST
 		c.refs.HandlerDocs[pc] = &HandlerDoc{"", ""}
-		return "", ""
+		return funcName, ""
 	}
 
 	file, _ := handlerValue.FileLine(pc)
