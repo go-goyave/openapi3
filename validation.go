@@ -20,12 +20,23 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 	// TODO cache using a simple map[*validation.Rules]*openapi3.RequestBodyRef
 	schema := openapi3.NewObjectSchema()
 	for name, field := range rules.Fields {
+		target := schema
+		if strings.Contains(name, ".") {
+			target, name = findParentSchema(schema, name)
+			if target == nil {
+				continue
+			}
+			if target.Properties == nil {
+				target.Properties = make(map[string]*openapi3.SchemaRef)
+			}
+		}
 		s, encoding := SchemaFromField(field)
-		schema.Properties[name] = &openapi3.SchemaRef{Value: s}
+		target.Properties[name] = &openapi3.SchemaRef{Value: s}
 		if field.IsRequired() {
-			schema.Required = append(schema.Required, name)
+			target.Required = append(target.Required, name)
 		}
 		if encoding != nil {
+			// TODO encoding should be ignored for objects
 			encodings[name] = encoding
 		}
 	}
@@ -97,7 +108,6 @@ func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encod
 			schema := openapi3.NewSchema()
 			schema.Type = ruleNameToType(rule.Name)
 			s.Items = &openapi3.SchemaRef{Value: schema}
-		// TODO objects
 		default:
 			s.Type = rule.Name
 		}
@@ -163,6 +173,19 @@ func findFirstTypeRule(field *validation.Field) *validation.Rule {
 	return nil
 }
 
+func findParentSchema(schema *openapi3.Schema, name string) (*openapi3.Schema, string) {
+	segments := strings.Split(name, ".")
+	for _, n := range segments[:len(segments)-1] {
+		ref, ok := schema.Properties[n]
+		if !ok {
+			return nil, ""
+		}
+		schema = ref.Value
+	}
+
+	return schema, segments[len(segments)-1]
+}
+
 func ruleNameToType(name string) string {
 	switch name {
 	case "numeric":
@@ -180,8 +203,9 @@ func ruleNameToType(name string) string {
 // rule, if supported.
 type RuleConverter func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding)
 
+// TODO add a way to handle custom rules
+
 var (
-	// TODO object
 	ruleConverters = map[string]RuleConverter{
 		"min": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
 			switch s.Type {
