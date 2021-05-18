@@ -77,8 +77,23 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
 	for name, field := range rules.Fields {
-		param := openapi3.NewQueryParameter(name)
 		s, _ := SchemaFromField(field)
+		if strings.Contains(name, ".") {
+			target, name := findParentSchemaQuery(parameters, name)
+			if target == nil {
+				continue
+			}
+			if target.Properties == nil {
+				target.Properties = make(map[string]*openapi3.SchemaRef)
+			}
+
+			target.Properties[name] = &openapi3.SchemaRef{Value: s}
+			if field.IsRequired() {
+				target.Required = append(target.Required, name)
+			}
+			continue
+		}
+		param := openapi3.NewQueryParameter(name)
 		param.Schema = &openapi3.SchemaRef{Value: s}
 		format := param.Schema.Value.Format
 		if format != "binary" && format != "bytes" {
@@ -176,6 +191,32 @@ func findFirstTypeRule(field *validation.Field) *validation.Rule {
 func findParentSchema(schema *openapi3.Schema, name string) (*openapi3.Schema, string) {
 	segments := strings.Split(name, ".")
 	for _, n := range segments[:len(segments)-1] {
+		ref, ok := schema.Properties[n]
+		if !ok {
+			return nil, ""
+		}
+		schema = ref.Value
+	}
+
+	return schema, segments[len(segments)-1]
+}
+
+func findParentSchemaQuery(parameters openapi3.Parameters, name string) (*openapi3.Schema, string) {
+	segments := strings.Split(name, ".")
+	var param *openapi3.ParameterRef
+	for _, p := range parameters {
+		if p.Value.Name == segments[0] {
+			param = p
+			break
+		}
+	}
+	if param == nil {
+		return nil, ""
+	}
+
+	schema := param.Value.Schema.Value
+	// TODO redundant code
+	for _, n := range segments[1 : len(segments)-1] {
 		ref, ok := schema.Properties[n]
 		if !ok {
 			return nil, ""
