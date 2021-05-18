@@ -31,7 +31,14 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 			}
 		}
 		s, encoding := SchemaFromField(field)
-		target.Properties[name] = &openapi3.SchemaRef{Value: s}
+
+		if existing, ok := target.Properties[name]; ok {
+			for k, v := range s.Properties {
+				existing.Value.Properties[k] = v
+			}
+		} else {
+			target.Properties[name] = &openapi3.SchemaRef{Value: s}
+		}
 		if field.IsRequired() {
 			target.Required = append(target.Required, name)
 		}
@@ -76,18 +83,22 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 	}
 
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
-	for name, field := range rules.Fields {
+	for name, field := range rules.Fields { // FIXME iteration order not guaranteed, can break objects
 		s, _ := SchemaFromField(field)
 		if strings.Contains(name, ".") {
-			target, name := findParentSchemaQuery(parameters, name)
-			if target == nil {
-				continue
-			}
+			p, target, name := findParentSchemaQuery(parameters, name) // FIXME this is bugged and doesn't work
+			parameters = p
 			if target.Properties == nil {
 				target.Properties = make(map[string]*openapi3.SchemaRef)
 			}
 
-			target.Properties[name] = &openapi3.SchemaRef{Value: s}
+			if existing, ok := target.Properties[name]; ok {
+				for k, v := range s.Properties {
+					existing.Value.Properties[k] = v
+				}
+			} else {
+				target.Properties[name] = &openapi3.SchemaRef{Value: s}
+			}
 			if field.IsRequired() {
 				target.Required = append(target.Required, name)
 			}
@@ -193,7 +204,8 @@ func findParentSchema(schema *openapi3.Schema, name string) (*openapi3.Schema, s
 	for _, n := range segments[:len(segments)-1] {
 		ref, ok := schema.Properties[n]
 		if !ok {
-			return nil, ""
+			ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+			schema.Properties[n] = ref
 		}
 		schema = ref.Value
 	}
@@ -201,7 +213,7 @@ func findParentSchema(schema *openapi3.Schema, name string) (*openapi3.Schema, s
 	return schema, segments[len(segments)-1]
 }
 
-func findParentSchemaQuery(parameters openapi3.Parameters, name string) (*openapi3.Schema, string) {
+func findParentSchemaQuery(parameters openapi3.Parameters, name string) (openapi3.Parameters, *openapi3.Schema, string) {
 	segments := strings.Split(name, ".")
 	var param *openapi3.ParameterRef
 	for _, p := range parameters {
@@ -211,20 +223,23 @@ func findParentSchemaQuery(parameters openapi3.Parameters, name string) (*openap
 		}
 	}
 	if param == nil {
-		return nil, ""
+		p := openapi3.NewQueryParameter(segments[0])
+		p.Schema = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+		param = &openapi3.ParameterRef{Value: p}
+		parameters = append(parameters, param)
 	}
 
 	schema := param.Value.Schema.Value
-	// TODO redundant code
 	for _, n := range segments[1 : len(segments)-1] {
 		ref, ok := schema.Properties[n]
 		if !ok {
-			return nil, ""
+			ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+			schema.Properties[n] = ref
 		}
 		schema = ref.Value
 	}
 
-	return schema, segments[len(segments)-1]
+	return parameters, schema, segments[len(segments)-1]
 }
 
 func ruleNameToType(name string) string {
