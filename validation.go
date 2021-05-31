@@ -1,6 +1,7 @@
 package openapi3
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -83,10 +84,11 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 	}
 
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
-	for name, field := range rules.Fields { // FIXME iteration order not guaranteed, can break objects
+	for _, name := range sortKeys(rules) {
+		field := rules.Fields[name]
 		s, _ := SchemaFromField(field)
 		if strings.Contains(name, ".") {
-			p, target, name := findParentSchemaQuery(parameters, name) // FIXME this is bugged and doesn't work
+			p, target, name := findParentSchemaQuery(parameters, name)
 			parameters = p
 			if target.Properties == nil {
 				target.Properties = make(map[string]*openapi3.SchemaRef)
@@ -134,6 +136,7 @@ func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encod
 			schema := openapi3.NewSchema()
 			schema.Type = ruleNameToType(rule.Name)
 			s.Items = &openapi3.SchemaRef{Value: schema}
+			// FIXME arrays not working
 		default:
 			s.Type = rule.Name
 		}
@@ -188,6 +191,20 @@ func HasOnlyOptionalFiles(rules *validation.Rules) bool {
 		}
 	}
 	return true
+}
+
+func sortKeys(rules *validation.Rules) []string {
+	keys := make([]string, 0, len(rules.Fields))
+
+	for k := range rules.Fields {
+		keys = append(keys, k)
+	}
+
+	sort.SliceStable(keys, func(i, j int) bool {
+		return strings.Count(keys[i], ".") < strings.Count(keys[j], ".")
+	})
+
+	return keys
 }
 
 func findFirstTypeRule(field *validation.Field) *validation.Rule {
