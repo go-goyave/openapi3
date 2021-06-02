@@ -134,9 +134,8 @@ func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encod
 		case "array": // TODO multidimensional arrays
 			s.Type = "array"
 			schema := openapi3.NewSchema()
-			schema.Type = ruleNameToType(rule.Name)
+			schema.Type = ruleNameToType(rule.Params[0])
 			s.Items = &openapi3.SchemaRef{Value: schema}
-			// FIXME arrays not working
 		default:
 			s.Type = rule.Name
 		}
@@ -209,7 +208,7 @@ func sortKeys(rules *validation.Rules) []string {
 
 func findFirstTypeRule(field *validation.Field) *validation.Rule {
 	for _, rule := range field.Rules {
-		if rule.IsType() || rule.Name == "file" {
+		if rule.IsType() || rule.Name == "file" || rule.Name == "array" {
 			return rule
 		}
 	}
