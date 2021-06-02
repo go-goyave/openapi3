@@ -121,8 +121,12 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 // SchemaFromField convert a validation.Field to OpenAPI Schema.
 func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encoding) {
 	// TODO save schema ref to refs
+	return generateSchema(field, "", 0)
+}
+
+func generateSchema(field *validation.Field, typeFallback string, arrayDimension uint8) (*openapi3.Schema, *openapi3.Encoding) {
 	s := openapi3.NewSchema()
-	if rule := findFirstTypeRule(field); rule != nil {
+	if rule := findFirstTypeRule(field, arrayDimension); rule != nil {
 		switch rule.Name {
 		case "numeric":
 			s.Type = "number"
@@ -131,18 +135,29 @@ func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encod
 		case "file":
 			s.Type = "string"
 			s.Format = "binary"
-		case "array": // TODO multidimensional arrays
+		case "array":
 			s.Type = "array"
-			schema := openapi3.NewSchema()
-			schema.Type = ruleNameToType(rule.Params[0])
+			itemsTypeFallback := ""
+			if len(rule.Params) > 0 {
+				itemsTypeFallback = ruleNameToType(rule.Params[0])
+			}
+			schema, _ := generateSchema(field, itemsTypeFallback, arrayDimension+1)
+			if schema.Type == "" {
+				schema.Type = "string"
+			}
 			s.Items = &openapi3.SchemaRef{Value: schema}
 		default:
 			s.Type = rule.Name
 		}
+	} else if typeFallback != "" {
+		s.Type = typeFallback
 	}
 
 	var encoding *openapi3.Encoding
 	for _, r := range field.Rules {
+		if r.ArrayDimension != arrayDimension {
+			continue
+		}
 		if (r.Name == "image" || r.Name == "mime") && encoding == nil {
 			encoding = openapi3.NewEncoding()
 		}
@@ -150,6 +165,7 @@ func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encod
 			converter(r, s, encoding)
 		}
 	}
+
 	s.Nullable = field.IsNullable()
 	return s, encoding
 }
@@ -206,9 +222,9 @@ func sortKeys(rules *validation.Rules) []string {
 	return keys
 }
 
-func findFirstTypeRule(field *validation.Field) *validation.Rule {
+func findFirstTypeRule(field *validation.Field, arrayDimension uint8) *validation.Rule {
 	for _, rule := range field.Rules {
-		if rule.IsType() || rule.Name == "file" || rule.Name == "array" {
+		if (rule.IsType() || rule.Name == "file" || rule.Name == "array") && rule.ArrayDimension == arrayDimension {
 			return rule
 		}
 	}
