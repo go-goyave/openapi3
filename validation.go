@@ -275,7 +275,11 @@ func ruleNameToType(name string) string {
 // rule, if supported.
 type RuleConverter func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding)
 
-// TODO add a way to handle custom rules
+// RegisterRuleConverter register a RuleConverter function for the rule identified by
+// the given ruleName. Registering a rule converter allows to handle custom rules.
+func RegisterRuleConverter(ruleName string, converter RuleConverter) {
+	ruleConverters[ruleName] = converter
+}
 
 var (
 	ruleConverters = map[string]RuleConverter{
