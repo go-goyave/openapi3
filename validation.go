@@ -49,6 +49,15 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 		}
 	}
 
+	content := newContent(rules, schema, encodings)
+	body := openapi3.NewRequestBody().WithContent(content)
+	body.Required = HasRequired(rules)
+	return &openapi3.RequestBodyRef{
+		Value: body,
+	}
+}
+
+func newContent(rules *validation.Rules, schema *openapi3.Schema, encodings map[string]*openapi3.Encoding) openapi3.Content {
 	var content openapi3.Content
 	if HasFile(rules) {
 		content = openapi3.NewContentWithFormDataSchema(schema)
@@ -68,13 +77,7 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 	} else {
 		content = openapi3.NewContentWithJSONSchema(schema)
 	}
-	body := openapi3.NewRequestBody().WithContent(content)
-	if HasRequired(rules) {
-		body.Required = true
-	}
-	return &openapi3.RequestBodyRef{
-		Value: body,
-	}
+	return content
 }
 
 // ConvertToQuery convert validation.Rules to OpenAPI query Parameters.
