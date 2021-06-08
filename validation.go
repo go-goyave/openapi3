@@ -18,7 +18,6 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 
 	encodings := map[string]*openapi3.Encoding{}
 
-	// TODO cache using a simple map[*validation.Rules]*openapi3.RequestBodyRef
 	schema := openapi3.NewObjectSchema()
 	for name, field := range rules.Fields {
 		target := schema
@@ -123,7 +122,6 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 
 // SchemaFromField convert a validation.Field to OpenAPI Schema.
 func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encoding) {
-	// TODO save schema ref to refs
 	return generateSchema(field, "", 0)
 }
 
