@@ -42,7 +42,7 @@ func NewRouteConverter(route *goyave.Route, refs *Refs) *RouteConverter {
 }
 
 // Convert route to OpenAPI operations and adds the results to the given spec.
-func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
+func (c *RouteConverter) Convert(spec *openapi3.T) {
 	c.uri = c.cleanPath(c.route)
 	c.tag = c.uriToTag(c.uri)
 	c.funcName, c.description = c.readDescription()
@@ -59,7 +59,7 @@ func (c *RouteConverter) Convert(spec *openapi3.Swagger) {
 	c.convertPathParameters(spec.Paths[c.uri], spec)
 }
 
-func (c *RouteConverter) operationExists(spec *openapi3.Swagger, path, method string) bool {
+func (c *RouteConverter) operationExists(spec *openapi3.T, path, method string) bool {
 	if spec.Paths == nil {
 		return false
 	}
@@ -92,7 +92,7 @@ func (c *RouteConverter) operationExists(spec *openapi3.Swagger, path, method st
 	}
 }
 
-func (c *RouteConverter) convertOperation(method string, spec *openapi3.Swagger) *openapi3.Operation {
+func (c *RouteConverter) convertOperation(method string, spec *openapi3.T) *openapi3.Operation {
 	op := openapi3.NewOperation()
 	if c.tag != "" {
 		op.Tags = []string{c.tag}
@@ -136,7 +136,7 @@ func (c *RouteConverter) uriToTag(uri string) string {
 	return tag
 }
 
-func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *openapi3.Swagger) {
+func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *openapi3.T) {
 	uri, params := c.route.GetFullURIAndParameters()
 	formats := urlParamFormat.FindAllStringSubmatch(uri, -1)
 	for i, p := range params {
@@ -176,7 +176,7 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *op
 	}
 }
 
-func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3.Swagger) *openapi3.SchemaRef {
+func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3.T) *openapi3.SchemaRef {
 	schema := openapi3.NewStringSchema()
 	schema.Pattern = format
 	originalSchemaName := "param" + strings.Title(paramName)
@@ -217,7 +217,7 @@ func (c *RouteConverter) parameterExists(path *openapi3.PathItem, ref *openapi3.
 	return false
 }
 
-func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Operation, spec *openapi3.Swagger) {
+func (c *RouteConverter) convertValidationRules(method string, op *openapi3.Operation, spec *openapi3.T) {
 	if rules := c.route.GetValidationRules(); rules != nil {
 		if canHaveBody(method) {
 			if cached, ok := c.refs.RequestBodies[rules]; ok {
