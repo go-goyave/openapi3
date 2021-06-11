@@ -102,11 +102,7 @@ func NewUIOptions(spec *openapi3.T) *UIOptions {
 	if spec == nil {
 		json = []byte{}
 	} else {
-		j, err := spec.MarshalJSON()
-		if err != nil {
-			panic(err)
-		}
-		json = j
+		json, _ = spec.MarshalJSON()
 	}
 	return &UIOptions{
 		Title:     config.GetString("app.name") + " API Documentation",
@@ -127,9 +123,7 @@ func Serve(router *goyave.Router, uri string, opts *UIOptions) {
 	tmpl := template.Must(template.New("swaggerui").Parse(uiTemplate))
 
 	buf := bytes.NewBuffer(nil)
-	if err := tmpl.Execute(buf, opts); err != nil {
-		panic(err)
-	}
+	tmpl.Execute(buf, opts)
 	b := buf.Bytes()
 
 	r.Get("/", func(resp *goyave.Response, req *goyave.Request) {
