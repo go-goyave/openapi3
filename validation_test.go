@@ -3,6 +3,7 @@ package openapi3
 import (
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/suite"
 	"goyave.dev/goyave/v3/validation"
 )
@@ -189,6 +190,198 @@ func (suite *ValidationTestSuite) TestRuleNameToType() {
 	suite.Equal("boolean", ruleNameToType("bool"))
 	suite.Equal("string", ruleNameToType("file"))
 	suite.Equal("integer", ruleNameToType("integer"))
+}
+
+func (suite *ValidationTestSuite) TestRegisterRuleConverter() {
+	RegisterRuleConverter("testrule", func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {})
+	suite.Contains(ruleConverters, "testrule")
+}
+
+func (suite *ValidationTestSuite) TestMinRuleConverter() {
+	f := ruleConverters["min"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinLength)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "number"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "integer"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "array"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinItems)
+}
+
+func (suite *ValidationTestSuite) TestMaxRuleConverter() {
+	f := ruleConverters["max"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), *schema.MaxLength)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "number"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "integer"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "array"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), *schema.MaxItems)
+}
+
+func (suite *ValidationTestSuite) TestBetweenRuleConverter() {
+	f := ruleConverters["between"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"5", "10"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinLength)
+	suite.Equal(uint64(10), *schema.MaxLength)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "number"
+	f(&validation.Rule{Params: []string{"5", "10"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(10), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "integer"
+	f(&validation.Rule{Params: []string{"5", "10"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(10), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "array"
+	f(&validation.Rule{Params: []string{"5", "10"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinItems)
+	suite.Equal(uint64(10), *schema.MaxItems)
+}
+
+func (suite *ValidationTestSuite) TestSizeRuleConverter() {
+	f := ruleConverters["size"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinLength)
+	suite.Equal(uint64(5), *schema.MaxLength)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "number"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(5), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "integer"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(5), *schema.Max)
+
+	schema = openapi3.NewSchema()
+	schema.Type = "array"
+	f(&validation.Rule{Params: []string{"5"}}, schema, nil)
+	suite.Equal(uint64(5), schema.MinItems)
+	suite.Equal(uint64(5), *schema.MaxItems)
+}
+
+func (suite *ValidationTestSuite) TestDistinctRuleConverter() {
+	f := ruleConverters["distinct"]
+	schema := openapi3.NewArraySchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.True(schema.UniqueItems)
+}
+
+func (suite *ValidationTestSuite) TestDigitsRuleConverter() {
+	f := ruleConverters["digits"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("^[0-9]*$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestRegexRuleConverter() {
+	f := ruleConverters["regex"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"[0-9]+"}}, schema, nil)
+	suite.Equal("[0-9]+", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestEmailRuleConverter() {
+	f := ruleConverters["email"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("^[^@\\r\\n\\t]{1,64}@[^\\s]+$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestAlphaRuleConverter() {
+	f := ruleConverters["alpha"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("^[\\pL\\pM]+$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestAlphaDashRuleConverter() {
+	f := ruleConverters["alpha_dash"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("^[\\pL\\pM0-9_-]+$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestAlphaNumRuleConverter() {
+	f := ruleConverters["alpha_num"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("^[\\pL\\pM0-9]+$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestStartsWithRuleConverter() {
+	f := ruleConverters["starts_with"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"test"}}, schema, nil)
+	suite.Equal("^test", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestEndsWithRuleConverter() {
+	f := ruleConverters["ends_with"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"test"}}, schema, nil)
+	suite.Equal("test$", schema.Pattern)
+}
+
+func (suite *ValidationTestSuite) TestIPv4RuleConverter() {
+	f := ruleConverters["ipv4"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("ipv4", schema.Format)
+}
+
+func (suite *ValidationTestSuite) TestIPv6RuleConverter() {
+	f := ruleConverters["ipv6"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("ipv6", schema.Format)
+}
+
+func (suite *ValidationTestSuite) TestURLRuleConverter() {
+	f := ruleConverters["url"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("uri", schema.Format)
+}
+
+func (suite *ValidationTestSuite) TestUUIDRuleConverter() {
+	f := ruleConverters["uuid"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("uuid", schema.Format)
 }
 
 func TestValidationSuite(t *testing.T) {
