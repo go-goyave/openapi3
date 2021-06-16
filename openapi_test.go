@@ -1,6 +1,7 @@
 package openapi3
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,18 @@ func (suite *OpenAPITestSuite) TestMakeServers() {
 
 	s := servers[0]
 	suite.Equal("http://goyave.dev", s.URL)
+}
+
+func (suite *OpenAPITestSuite) TestCanHaveBody() {
+	suite.False(canHaveBody(http.MethodGet))
+	suite.False(canHaveBody(http.MethodHead))
+	suite.False(canHaveBody(http.MethodOptions))
+	suite.False(canHaveBody(http.MethodConnect))
+	suite.False(canHaveBody(http.MethodTrace))
+	suite.True(canHaveBody(http.MethodDelete))
+	suite.True(canHaveBody(http.MethodPatch))
+	suite.True(canHaveBody(http.MethodPut))
+	suite.True(canHaveBody(http.MethodPost))
 }
 
 func TestOpenAPISuite(t *testing.T) {
