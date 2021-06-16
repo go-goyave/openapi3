@@ -13,7 +13,6 @@ type Refs struct {
 	Schemas         map[*validation.Rules]*openapi3.SchemaRef
 	ParamSchemas    map[string]*openapi3.SchemaRef
 	Parameters      map[string]*openapi3.ParameterRef
-	FieldSchemas    map[*validation.Field]*openapi3.SchemaRef
 	QueryParameters map[*validation.Rules][]*openapi3.ParameterRef
 	RequestBodies   map[*validation.Rules]*openapi3.RequestBodyRef
 	AST             map[string]*ast.File
@@ -26,7 +25,6 @@ func NewRefs() *Refs {
 		Schemas:         make(map[*validation.Rules]*openapi3.SchemaRef),
 		ParamSchemas:    make(map[string]*openapi3.SchemaRef),
 		Parameters:      make(map[string]*openapi3.ParameterRef),
-		FieldSchemas:    make(map[*validation.Field]*openapi3.SchemaRef),
 		QueryParameters: make(map[*validation.Rules][]*openapi3.ParameterRef),
 		RequestBodies:   make(map[*validation.Rules]*openapi3.RequestBodyRef),
 		AST:             make(map[string]*ast.File),
