@@ -386,27 +386,74 @@ func (suite *ValidationTestSuite) TestUUIDRuleConverter() {
 }
 
 func (suite *ValidationTestSuite) TestMimeRuleConverter() {
-
+	f := ruleConverters["mime"]
+	encoding := openapi3.NewEncoding()
+	f(&validation.Rule{Params: []string{"application/json", "text/html"}}, nil, encoding)
+	suite.Equal("application/json, text/html", encoding.ContentType)
 }
 
 func (suite *ValidationTestSuite) TestImageRuleConverter() {
-
+	f := ruleConverters["image"]
+	encoding := openapi3.NewEncoding()
+	f(&validation.Rule{}, nil, encoding)
+	suite.Equal("image/jpeg, image/png, image/gif, image/bmp, image/svg+xml, image/webp", encoding.ContentType)
 }
 
 func (suite *ValidationTestSuite) TestCountRuleConverter() {
+	f := ruleConverters["count"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"1"}}, schema, nil)
+	suite.Equal("string", schema.Type)
 
+	f(&validation.Rule{Params: []string{"3"}}, schema, nil)
+	suite.Equal("array", schema.Type)
+	suite.Empty(schema.Format)
+	suite.NotNil(schema.Items)
+	suite.NotNil(schema.Items.Value)
+	suite.Equal("string", schema.Items.Value.Type)
+	suite.Equal("binary", schema.Items.Value.Format)
+	suite.Equal(uint64(3), schema.MinItems)
+	suite.Equal(uint64(3), *schema.MaxItems)
 }
 
 func (suite *ValidationTestSuite) TestCountMinRuleConverter() {
-
+	f := ruleConverters["count_min"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"1"}}, schema, nil)
+	suite.Equal("array", schema.Type)
+	suite.Empty(schema.Format)
+	suite.NotNil(schema.Items)
+	suite.NotNil(schema.Items.Value)
+	suite.Equal("string", schema.Items.Value.Type)
+	suite.Equal("binary", schema.Items.Value.Format)
+	suite.Equal(uint64(1), schema.MinItems)
 }
 
 func (suite *ValidationTestSuite) TestCountMaxRuleConverter() {
-
+	f := ruleConverters["count_max"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"1"}}, schema, nil)
+	suite.Equal("array", schema.Type)
+	suite.Empty(schema.Format)
+	suite.NotNil(schema.Items)
+	suite.NotNil(schema.Items.Value)
+	suite.Equal("string", schema.Items.Value.Type)
+	suite.Equal("binary", schema.Items.Value.Format)
+	suite.Equal(uint64(1), *schema.MaxItems)
 }
 
 func (suite *ValidationTestSuite) TestCountBetweenRuleConverter() {
-
+	f := ruleConverters["count_between"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{"3", "5"}}, schema, nil)
+	suite.Equal("array", schema.Type)
+	suite.Empty(schema.Format)
+	suite.NotNil(schema.Items)
+	suite.NotNil(schema.Items.Value)
+	suite.Equal("string", schema.Items.Value.Type)
+	suite.Equal("binary", schema.Items.Value.Format)
+	suite.Equal(uint64(3), schema.MinItems)
+	suite.Equal(uint64(5), *schema.MaxItems)
 }
 
 func (suite *ValidationTestSuite) TestDateRuleConverter() {

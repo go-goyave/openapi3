@@ -410,6 +410,7 @@ var (
 		"count": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
 			if r.Params[0] != "1" {
 				s.Type = "array"
+				s.Format = ""
 				s.Items = &openapi3.SchemaRef{
 					Value: &openapi3.Schema{
 						Type:   "string",
@@ -423,6 +424,7 @@ var (
 		},
 		"count_min": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
 			s.Type = "array"
+			s.Format = ""
 			s.Items = &openapi3.SchemaRef{
 				Value: &openapi3.Schema{
 					Type:   "string",
@@ -434,6 +436,7 @@ var (
 		},
 		"count_max": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
 			s.Type = "array"
+			s.Format = ""
 			s.Items = &openapi3.SchemaRef{
 				Value: &openapi3.Schema{
 					Type:   "string",
@@ -445,6 +448,7 @@ var (
 		},
 		"count_between": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
 			s.Type = "array"
+			s.Format = ""
 			s.Items = &openapi3.SchemaRef{
 				Value: &openapi3.Schema{
 					Type:   "string",
