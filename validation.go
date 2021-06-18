@@ -23,9 +23,6 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 		target := schema
 		if strings.Contains(name, ".") {
 			target, name = findParentSchema(schema, name)
-			if target == nil {
-				continue
-			}
 			if target.Properties == nil {
 				target.Properties = make(map[string]*openapi3.SchemaRef)
 			}

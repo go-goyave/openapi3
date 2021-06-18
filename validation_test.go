@@ -467,6 +467,26 @@ func (suite *ValidationTestSuite) TestDateRuleConverter() {
 	suite.Equal("date-time", schema.Format)
 }
 
+func (suite *ValidationTestSuite) TestParentSchema() {
+	schema := openapi3.NewObjectSchema()
+
+	prop1 := openapi3.NewObjectSchema()
+	prop2 := openapi3.NewObjectSchema()
+	prop3 := openapi3.NewStringSchema()
+
+	prop2.Properties["prop3"] = &openapi3.SchemaRef{Value: prop3}
+	prop1.Properties["prop2"] = &openapi3.SchemaRef{Value: prop2}
+	schema.Properties["prop1"] = &openapi3.SchemaRef{Value: prop1}
+
+	parent, name := findParentSchema(schema, "prop1.prop2.prop3")
+	suite.Equal(prop2, parent)
+	suite.Equal("prop3", name)
+
+	parent, name = findParentSchema(schema, "prop1.prop2.prop4.prop5")
+	suite.Equal(prop2.Properties["prop4"].Value, parent)
+	suite.Equal("prop5", name)
+}
+
 func TestValidationSuite(t *testing.T) {
 	suite.Run(t, new(ValidationTestSuite))
 }
