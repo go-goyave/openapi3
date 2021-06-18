@@ -2,6 +2,7 @@ package openapi3
 
 import (
 	"testing"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/suite"
@@ -382,6 +383,41 @@ func (suite *ValidationTestSuite) TestUUIDRuleConverter() {
 	schema := openapi3.NewStringSchema()
 	f(&validation.Rule{}, schema, nil)
 	suite.Equal("uuid", schema.Format)
+}
+
+func (suite *ValidationTestSuite) TestMimeRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestImageRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestCountRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestCountMinRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestCountMaxRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestCountBetweenRuleConverter() {
+
+}
+
+func (suite *ValidationTestSuite) TestDateRuleConverter() {
+	f := ruleConverters["date"]
+	schema := openapi3.NewStringSchema()
+	f(&validation.Rule{}, schema, nil)
+	suite.Equal("date", schema.Format)
+
+	schema = openapi3.NewStringSchema()
+	f(&validation.Rule{Params: []string{time.RFC3339}}, schema, nil)
+	suite.Equal("date-time", schema.Format)
 }
 
 func TestValidationSuite(t *testing.T) {

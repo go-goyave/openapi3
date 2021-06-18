@@ -457,7 +457,7 @@ var (
 			s.MaxItems = &max
 		},
 		"date": func(r *validation.Rule, s *openapi3.Schema, encoding *openapi3.Encoding) {
-			if len(r.Params) == 0 {
+			if len(r.Params) != 0 {
 				if r.Params[0] == time.RFC3339 {
 					s.Format = "date-time"
 				}
