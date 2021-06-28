@@ -260,13 +260,15 @@ func findParentSchemaQuery(parameters openapi3.Parameters, name string) (openapi
 	}
 
 	schema := param.Value.Schema.Value
-	for _, n := range segments[1 : len(segments)-1] {
-		ref, ok := schema.Properties[n]
-		if !ok {
-			ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
-			schema.Properties[n] = ref
+	if len(segments) > 1 {
+		for _, n := range segments[1 : len(segments)-1] {
+			ref, ok := schema.Properties[n]
+			if !ok {
+				ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+				schema.Properties[n] = ref
+			}
+			schema = ref.Value
 		}
-		schema = ref.Value
 	}
 
 	return parameters, schema, segments[len(segments)-1]

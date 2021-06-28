@@ -479,12 +479,62 @@ func (suite *ValidationTestSuite) TestParentSchema() {
 	schema.Properties["prop1"] = &openapi3.SchemaRef{Value: prop1}
 
 	parent, name := findParentSchema(schema, "prop1.prop2.prop3")
-	suite.Equal(prop2, parent)
+	suite.Same(prop2, parent)
 	suite.Equal("prop3", name)
 
 	parent, name = findParentSchema(schema, "prop1.prop2.prop4.prop5")
-	suite.Equal(prop2.Properties["prop4"].Value, parent)
+	suite.Same(prop2.Properties["prop4"].Value, parent)
 	suite.Equal("prop5", name)
+}
+
+func (suite *ValidationTestSuite) TestParentSchemaQuery() {
+	parameters := make(openapi3.Parameters, 0, 3)
+
+	param1 := openapi3.NewObjectSchema()
+	param2 := openapi3.NewStringSchema()
+	prop1 := openapi3.NewObjectSchema()
+	prop2 := openapi3.NewObjectSchema()
+	prop3 := openapi3.NewStringSchema()
+
+	prop2.Properties["prop3"] = &openapi3.SchemaRef{Value: prop3}
+	prop1.Properties["prop2"] = &openapi3.SchemaRef{Value: prop2}
+	param1.Properties["prop1"] = &openapi3.SchemaRef{Value: prop1}
+
+	parameters = append(parameters, &openapi3.ParameterRef{
+		Value: &openapi3.Parameter{
+			Name:   "param1",
+			Schema: &openapi3.SchemaRef{Value: param1}},
+	},
+	)
+	parameters = append(parameters, &openapi3.ParameterRef{
+		Value: &openapi3.Parameter{
+			Name:   "param2",
+			Schema: &openapi3.SchemaRef{Value: param2}},
+	},
+	)
+
+	p, target, name := findParentSchemaQuery(parameters, "param2")
+	suite.Equal(parameters, p)
+	suite.Same(param2, target)
+	suite.Equal("param2", name)
+
+	p, target, name = findParentSchemaQuery(parameters, "param3")
+	suite.NotNil(target)
+	suite.Len(p, 3)
+	suite.Equal("param3", name)
+
+	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.prop2")
+	suite.Same(prop1, target)
+	suite.Equal("prop2", name)
+
+	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.newprop.prop")
+	suite.Same(prop1.Properties["newprop"].Value, target)
+	suite.Equal("prop", name)
+
+	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.prop2.prop3")
+	suite.Same(prop2, target)
+	suite.Equal("prop3", name)
+
 }
 
 func TestValidationSuite(t *testing.T) {
