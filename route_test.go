@@ -3,6 +3,7 @@ package openapi3
 import (
 	"go/ast"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -108,6 +109,87 @@ func (suite *RouteTestSuite) TestGetASTCached() {
 	refs.AST["route.go"] = astFile
 	converter := NewRouteConverter(&goyave.Route{}, refs)
 	suite.Same(astFile, converter.getAST("route.go"))
+}
+
+func (suite *RouteTestSuite) TestReadDescription() {
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/test", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+	pc := reflect.ValueOf(HandlerTest).Pointer()
+
+	funcName, description := converter.readDescription()
+	suite.Equal("goyave.dev/openapi3.HandlerTest", funcName)
+	suite.Equal("HandlerTest a test handler for AST reading", description)
+	suite.Contains(refs.HandlerDocs, pc)
+}
+
+func (suite *RouteTestSuite) TestReadDescriptionClosure() {
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	closure := func(r1 *goyave.Response, r2 *goyave.Request) {}
+	route := router.Get("/test", closure)
+	converter := NewRouteConverter(route, refs)
+	pc := reflect.ValueOf(closure).Pointer()
+
+	funcName, description := converter.readDescription()
+	suite.Equal("goyave.dev/openapi3.(*RouteTestSuite).TestReadDescriptionClosure.func1", funcName)
+	suite.Empty(description)
+	suite.Contains(refs.HandlerDocs, pc)
+}
+
+func (suite *RouteTestSuite) TestReadDescriptionStruct() {
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	ctrl := &testController{}
+
+	route := router.Get("/test", ctrl.handlerStar)
+	converter := NewRouteConverter(route, refs)
+	pc := reflect.ValueOf(ctrl.handlerStar).Pointer()
+
+	funcName, description := converter.readDescription()
+	suite.Equal("goyave.dev/openapi3.(*testController).handlerStar-fm", funcName)
+	suite.Empty(description)
+	suite.Contains(refs.HandlerDocs, pc)
+
+	ctrl2 := testController{}
+	route = router.Get("/test", ctrl2.handler)
+	converter = NewRouteConverter(route, refs)
+	pc2 := reflect.ValueOf(ctrl2.handler).Pointer()
+	funcName, description = converter.readDescription()
+	suite.Equal("goyave.dev/openapi3.testController.handler-fm", funcName)
+	suite.Empty(description)
+	suite.Contains(refs.HandlerDocs, pc2)
+}
+
+func (suite *RouteTestSuite) TestReadDescriptionCached() {
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/test", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+	pc := reflect.ValueOf(HandlerTest).Pointer()
+	refs.HandlerDocs[pc] = &HandlerDoc{
+		FuncName:    "HandlerTest",
+		Description: "Handler description",
+	}
+	funcName, description := converter.readDescription()
+	suite.Equal("HandlerTest", funcName)
+	suite.Equal("Handler description", description)
+}
+
+// HandlerTest a test handler for AST reading
+func HandlerTest(resp *goyave.Response, req *goyave.Request) {
+	resp.Status(http.StatusOK)
+}
+
+type testController struct{}
+
+func (c *testController) handlerStar(resp *goyave.Response, req *goyave.Request) {
+	resp.Status(http.StatusOK)
+}
+
+func (c testController) handler(resp *goyave.Response, req *goyave.Request) {
+	resp.Status(http.StatusOK)
 }
 
 func TestRouteSuite(t *testing.T) {

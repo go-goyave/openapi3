@@ -270,7 +270,7 @@ func (c *RouteConverter) readDescription() (string, string) {
 
 	if closureFormat.MatchString(funcName) {
 		// Closures can't be documented, there's no need to parse AST
-		c.refs.HandlerDocs[pc] = &HandlerDoc{"", ""}
+		c.refs.HandlerDocs[pc] = &HandlerDoc{funcName, ""}
 		return funcName, ""
 	}
 
@@ -298,9 +298,14 @@ func (c *RouteConverter) readDescription() (string, string) {
 					default:
 						continue
 					}
-					name := funcName[:len(funcName)-3] // strip -fm suffix
+					name := funcName
+					if strings.HasSuffix(name, "-fm") {
+						// strip -fm suffix
+						name = funcName[:len(funcName)-3]
+					}
 					expectedName := strct + "." + fn.Name.Name
-					if name[len(name)-len(expectedName):] == expectedName {
+					startIndex := len(name) - len(expectedName)
+					if startIndex > 0 && name[startIndex:] == expectedName {
 						doc = fn.Doc
 						return false
 					}
@@ -316,14 +321,13 @@ func (c *RouteConverter) readDescription() (string, string) {
 		return true
 	})
 
+	docs := ""
 	if doc != nil {
-		docs := strings.TrimSpace(doc.Text())
-		c.refs.HandlerDocs[pc] = &HandlerDoc{funcName, docs}
-		return funcName, docs
+		docs = strings.TrimSpace(doc.Text())
 	}
 
-	c.refs.HandlerDocs[pc] = &HandlerDoc{"", ""}
-	return "", ""
+	c.refs.HandlerDocs[pc] = &HandlerDoc{funcName, docs}
+	return funcName, docs
 }
 
 func (c *RouteConverter) getAST(file string) *ast.File {
