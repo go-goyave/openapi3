@@ -1,6 +1,7 @@
 package openapi3
 
 import (
+	"go/ast"
 	"net/http"
 	"testing"
 
@@ -46,6 +47,12 @@ func (suite *RouteTestSuite) TestOperationExists() {
 	})
 }
 
+func (suite *RouteTestSuite) addAndTestOperationExists(converter *RouteConverter, spec *openapi3.T, method string) {
+	suite.False(converter.operationExists(spec, "/test", method))
+	spec.AddOperation("/test", method, openapi3.NewOperation())
+	suite.True(converter.operationExists(spec, "/test", method))
+}
+
 func (suite *RouteTestSuite) TestCleanPath() {
 	router := goyave.NewRouter()
 	route := router.Get("/test/{param1}/{param2:[0-9]+}", func(r1 *goyave.Response, r2 *goyave.Request) {})
@@ -79,10 +86,28 @@ func (suite *RouteTestSuite) TestRulesRefName() {
 	suite.Equal("auth.JWTController.Login-fm", converter.rulesRefName())
 }
 
-func (suite *RouteTestSuite) addAndTestOperationExists(converter *RouteConverter, spec *openapi3.T, method string) {
-	suite.False(converter.operationExists(spec, "/test", method))
-	spec.AddOperation("/test", method, openapi3.NewOperation())
-	suite.True(converter.operationExists(spec, "/test", method))
+func (suite *RouteTestSuite) TestGetAST() {
+	refs := NewRefs()
+	converter := NewRouteConverter(&goyave.Route{}, refs)
+	ast := converter.getAST("route.go")
+	suite.Contains(refs.AST, "route.go")
+	suite.Same(refs.AST["route.go"], ast)
+
+	suite.Panics(func() {
+		converter.getAST("notafile")
+	})
+	suite.Panics(func() {
+		// Not a go file
+		converter.getAST("go.mod")
+	})
+}
+
+func (suite *RouteTestSuite) TestGetASTCached() {
+	refs := NewRefs()
+	astFile := &ast.File{}
+	refs.AST["route.go"] = astFile
+	converter := NewRouteConverter(&goyave.Route{}, refs)
+	suite.Same(astFile, converter.getAST("route.go"))
 }
 
 func TestRouteSuite(t *testing.T) {
