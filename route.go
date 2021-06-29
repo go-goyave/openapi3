@@ -123,10 +123,14 @@ func (c *RouteConverter) cleanPath(route *goyave.Route) string {
 func (c *RouteConverter) uriToTag(uri string) string {
 	// Take the first segment of the uri and use it as tag
 	tag := ""
-	if i := strings.Index(uri[1:], "/"); i != -1 {
-		tag = uri[1 : i+1]
+	startIndex := 1
+	if uri[0] != '/' {
+		startIndex = 0
+	}
+	if i := strings.Index(uri[startIndex:], "/"); i != -1 {
+		tag = uri[startIndex : i+startIndex]
 	} else {
-		tag = uri[1:]
+		tag = uri[startIndex:]
 	}
 	if len(tag) > 2 && tag[0] == '{' && tag[len(tag)-1] == '}' {
 		// The first segment is a parameter
