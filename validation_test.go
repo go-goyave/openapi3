@@ -648,6 +648,85 @@ func (suite *ValidationTestSuite) TestGenerateSchemaFile() {
 	suite.Equal("binary", schema.Format)
 }
 
+func (suite *ValidationTestSuite) TestNewContent() {
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+		},
+	}
+	encodings := map[string]*openapi3.Encoding{}
+	schema := openapi3.NewObjectSchema()
+
+	content := newContent(rules, schema, encodings)
+	suite.Contains(content, "application/json")
+	mediaType := content["application/json"]
+	suite.Same(schema, mediaType.Schema.Value)
+}
+
+func (suite *ValidationTestSuite) TestNewContentFile() {
+	rules := (&validation.Rules{
+		Fields: validation.FieldMap{
+			"field": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"file": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "file"},
+				{Name: "mime", Params: []string{"application/json", "text/html"}},
+			}},
+		},
+	}).AsRules()
+
+	encodings := map[string]*openapi3.Encoding{
+		"file": {ContentType: "application/json, text/html"},
+	}
+	schema := openapi3.NewObjectSchema()
+
+	content := newContent(rules, schema, encodings)
+	suite.Contains(content, "multipart/form-data")
+	mediaType := content["multipart/form-data"]
+	suite.Same(schema, mediaType.Schema.Value)
+	suite.Equal(encodings, mediaType.Encoding)
+}
+
+func (suite *ValidationTestSuite) TestNewContentFileOptional() {
+	rules := (&validation.Rules{
+		Fields: validation.FieldMap{
+			"field": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"file": {Rules: []*validation.Rule{
+				{Name: "file"},
+				{Name: "mime", Params: []string{"application/json", "text/html"}},
+			}},
+		},
+	}).AsRules()
+
+	encodings := map[string]*openapi3.Encoding{
+		"file": {ContentType: "application/json, text/html"},
+	}
+	schema := openapi3.NewObjectSchema()
+	schema.Properties["field"] = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string"}}
+	schema.Properties["file"] = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string", Format: "binary"}}
+
+	content := newContent(rules, schema, encodings)
+	suite.Contains(content, "multipart/form-data")
+	mediaType := content["multipart/form-data"]
+	suite.Same(schema, mediaType.Schema.Value)
+	suite.Equal(encodings, mediaType.Encoding)
+
+	suite.Contains(content, "application/json")
+	mediaType = content["application/json"]
+	suite.NotSame(schema, mediaType.Schema.Value)
+	suite.Contains(mediaType.Schema.Value.Properties, "field")
+	suite.NotContains(mediaType.Schema.Value.Properties, "file")
+}
+
 func TestValidationSuite(t *testing.T) {
 	suite.Run(t, new(ValidationTestSuite))
 }
