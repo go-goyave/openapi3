@@ -504,14 +504,12 @@ func (suite *ValidationTestSuite) TestParentSchemaQuery() {
 		Value: &openapi3.Parameter{
 			Name:   "param1",
 			Schema: &openapi3.SchemaRef{Value: param1}},
-	},
-	)
+	})
 	parameters = append(parameters, &openapi3.ParameterRef{
 		Value: &openapi3.Parameter{
 			Name:   "param2",
 			Schema: &openapi3.SchemaRef{Value: param2}},
-	},
-	)
+	})
 
 	p, target, name := findParentSchemaQuery(parameters, "param2")
 	suite.Equal(parameters, p)
@@ -535,6 +533,119 @@ func (suite *ValidationTestSuite) TestParentSchemaQuery() {
 	suite.Same(prop2, target)
 	suite.Equal("prop3", name)
 
+}
+
+func checkField(field *validation.Field) {
+	// This is required so the field can be checked and
+	// isNullable and such can be cached
+	(&validation.Rules{
+		Fields: validation.FieldMap{
+			"field": field,
+		},
+	}).AsRules()
+}
+
+func (suite *ValidationTestSuite) TestGenerateSchema() {
+	field := &validation.Field{
+		Rules: []*validation.Rule{
+			{Name: "numeric"},
+			{Name: "min", Params: []string{"5"}},
+			{Name: "max", Params: []string{"10"}},
+		},
+	}
+	checkField(field)
+
+	schema, encoding := SchemaFromField(field)
+	suite.Nil(encoding)
+	suite.Equal("number", schema.Type)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(10), *schema.Max)
+	suite.False(schema.Nullable)
+
+	field.Rules[0].Name = "integer"
+	field.Rules = append(field.Rules, &validation.Rule{Name: "nullable"})
+	checkField(field)
+
+	schema, encoding = SchemaFromField(field)
+	suite.Nil(encoding)
+	suite.Equal("integer", schema.Type)
+	suite.Equal(float64(5), *schema.Min)
+	suite.Equal(float64(10), *schema.Max)
+	suite.True(schema.Nullable)
+
+	field = &validation.Field{Rules: []*validation.Rule{{Name: "bool"}}}
+	checkField(field)
+	schema, encoding = SchemaFromField(field)
+	suite.Nil(encoding)
+	suite.Equal("boolean", schema.Type)
+}
+
+func (suite *ValidationTestSuite) TestGenerateSchemaTypeFallback() {
+	field := &validation.Field{
+		Rules: []*validation.Rule{
+			{Name: "min", Params: []string{"5"}},
+			{Name: "max", Params: []string{"10"}},
+		},
+	}
+	checkField(field)
+	schema, encoding := generateSchema(field, "fallback", 0)
+	suite.Nil(encoding)
+	suite.Equal("fallback", schema.Type)
+}
+
+func (suite *ValidationTestSuite) TestGenerateSchemaArray() {
+	field := &validation.Field{
+		Rules: []*validation.Rule{
+			{Name: "array"},
+			{Name: "array", ArrayDimension: 1},
+			{Name: "array", Params: []string{"numeric"}, ArrayDimension: 2},
+			{Name: "max", Params: []string{"3"}, ArrayDimension: 1},
+			{Name: "max", Params: []string{"4"}, ArrayDimension: 3},
+		},
+	}
+	checkField(field)
+
+	schema, _ := SchemaFromField(field)
+	suite.Equal("array", schema.Type)
+
+	items := schema.Items
+	suite.NotNil(items)
+	suite.Equal("array", items.Value.Type)
+	suite.Equal(uint64(3), *items.Value.MaxItems)
+
+	items = items.Value.Items
+	suite.NotNil(items)
+	suite.Equal("array", items.Value.Type)
+
+	items = items.Value.Items
+	suite.NotNil(items)
+	suite.Equal("number", items.Value.Type)
+	suite.Equal(float64(4), *items.Value.Max)
+
+	// No array type fallback
+	field = &validation.Field{Rules: []*validation.Rule{{Name: "array"}}}
+	checkField(field)
+	schema, _ = SchemaFromField(field)
+	suite.Equal("array", schema.Type)
+	items = schema.Items
+	suite.NotNil(items)
+	suite.Equal("string", items.Value.Type)
+}
+
+func (suite *ValidationTestSuite) TestGenerateSchemaFile() {
+	field := &validation.Field{
+		Rules: []*validation.Rule{
+			{Name: "file"},
+			{Name: "mime", Params: []string{"application/json", "text/html"}},
+		},
+	}
+	checkField(field)
+
+	schema, encoding := SchemaFromField(field)
+	suite.NotNil(encoding)
+	suite.Equal("application/json, text/html", encoding.ContentType)
+	suite.Equal("string", schema.Type)
+	suite.Equal("binary", schema.Format)
 }
 
 func TestValidationSuite(t *testing.T) {
