@@ -248,6 +248,63 @@ func (suite *RouteTestSuite) TestGetParamSchemaCacheAndNaming() {
 	suite.Contains(refs.ParamSchemas, "paramParam1.2")
 }
 
+func (suite *RouteTestSuite) TestConvertPathParameter() {
+	spec := &openapi3.T{
+		Components: openapi3.Components{
+			Schemas:    openapi3.Schemas{},
+			Parameters: openapi3.ParametersMap{},
+		},
+	}
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/{test:[a-z0-9]+}/{param}/{id:[0-9]+}", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+
+	path := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Responses: openapi3.NewResponses(),
+		},
+	}
+
+	converter.convertPathParameters(path, spec)
+
+	suite.Contains(spec.Components.Parameters, "test")
+	suite.Contains(spec.Components.Parameters, "param")
+	suite.Contains(spec.Components.Parameters, "id")
+	suite.Contains(refs.Parameters, "test")
+	suite.Contains(refs.Parameters, "param")
+	suite.Contains(refs.Parameters, "id")
+	suite.Equal(refs.Parameters["test"].Ref, "#/components/parameters/test")
+	suite.Equal(refs.Parameters["param"].Ref, "#/components/parameters/param")
+	suite.Equal(refs.Parameters["id"].Ref, "#/components/parameters/id")
+	suite.Contains(path.Parameters, refs.Parameters["test"])
+	suite.Contains(path.Parameters, refs.Parameters["param"])
+	suite.Contains(path.Parameters, refs.Parameters["id"])
+
+	suite.Contains(spec.Components.Schemas, "paramTest")
+	suite.Contains(spec.Components.Schemas, "paramString")
+	suite.Contains(spec.Components.Schemas, "paramInteger")
+
+	// Cache and naming
+	path2 := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Responses: openapi3.NewResponses(),
+		},
+	}
+	route = router.Get("/{test:[A-Z0-9]+}/{param}", HandlerTest) // Not the same pattern
+	converter = NewRouteConverter(route, refs)
+	converter.convertPathParameters(path2, spec)
+	suite.Contains(path2.Parameters, refs.Parameters["param"])
+	suite.Contains(spec.Components.Parameters, "test.2")
+	suite.Contains(refs.Parameters, "test.2")
+	suite.Equal(refs.Parameters["test.2"].Ref, "#/components/parameters/test.2")
+
+	lenBefore := len(path.Parameters)
+	// No parameter should be added because they are already present
+	converter.convertPathParameters(path2, spec)
+	suite.Equal(lenBefore, len(path.Parameters))
+}
+
 func TestRouteSuite(t *testing.T) {
 	suite.Run(t, new(RouteTestSuite))
 }
