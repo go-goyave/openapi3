@@ -395,6 +395,65 @@ func findQueryParamRef(query []*openapi3.ParameterRef, ref string) *openapi3.Par
 	return nil
 }
 
+func (suite *RouteTestSuite) TestConvertOperation() {
+	spec := &openapi3.T{
+		Components: openapi3.Components{
+			Schemas:       openapi3.Schemas{},
+			Parameters:    openapi3.ParametersMap{},
+			RequestBodies: openapi3.RequestBodies{},
+		},
+	}
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"field2": {Rules: []*validation.Rule{
+				{Name: "nullable"},
+				{Name: "numeric"},
+			}},
+		},
+	}
+
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Post("/test", HandlerTest).Validate(rules)
+	converter := NewRouteConverter(route, refs)
+	converter.funcName = "HandlerTest"
+	converter.tag = "TestTag"
+	converter.description = "Test Description"
+
+	op := converter.convertOperation(http.MethodPost, spec)
+	suite.Equal(converter.tag, op.Tags[0])
+	suite.Equal(converter.description, op.Description)
+	suite.Contains(op.Responses, "default")
+	suite.NotNil(op.RequestBody)
+}
+
+func (suite *RouteTestSuite) TestConvert() {
+	spec := &openapi3.T{
+		Components: openapi3.Components{
+			Schemas:       openapi3.Schemas{},
+			Parameters:    openapi3.ParametersMap{},
+			RequestBodies: openapi3.RequestBodies{},
+		},
+	}
+
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Route("POST|HEAD|OPTIONS", "/test/{id:[0-9]+}", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+	converter.Convert(spec)
+	suite.Equal("/test/{id}", converter.uri)
+	suite.Equal("test", converter.tag)
+	suite.Equal("goyave.dev/openapi3.HandlerTest", converter.funcName)
+	suite.Equal("HandlerTest a test handler for AST reading", converter.description)
+	suite.Nil(spec.Paths["/test/{id}"].Head)
+	suite.Nil(spec.Paths["/test/{id}"].Options)
+	suite.NotNil(spec.Paths["/test/{id}"].Post)
+}
+
 func TestRouteSuite(t *testing.T) {
 	suite.Run(t, new(RouteTestSuite))
 }
