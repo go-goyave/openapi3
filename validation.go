@@ -16,10 +16,13 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 		return nil
 	}
 
+	rules = rules.AsRules() // Ensure rules are checked
+
 	encodings := map[string]*openapi3.Encoding{}
 
 	schema := openapi3.NewObjectSchema()
-	for name, field := range rules.Fields {
+	for _, name := range sortKeys(rules) {
+		field := rules.Fields[name]
 		target := schema
 		if strings.Contains(name, ".") {
 			target, name = findParentSchema(schema, name)
@@ -29,13 +32,7 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 		}
 		s, encoding := SchemaFromField(field)
 
-		if existing, ok := target.Properties[name]; ok {
-			for k, v := range s.Properties {
-				existing.Value.Properties[k] = v
-			}
-		} else {
-			target.Properties[name] = &openapi3.SchemaRef{Value: s}
-		}
+		target.Properties[name] = &openapi3.SchemaRef{Value: s}
 		if field.IsRequired() {
 			target.Required = append(target.Required, name)
 		}
@@ -81,6 +78,8 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 	if rules == nil {
 		return nil
 	}
+
+	rules = rules.AsRules() // Ensure rules are checked
 
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
 	for _, name := range sortKeys(rules) {

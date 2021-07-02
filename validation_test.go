@@ -727,6 +727,84 @@ func (suite *ValidationTestSuite) TestNewContentFileOptional() {
 	suite.NotContains(mediaType.Schema.Value.Properties, "file")
 }
 
+func (suite *ValidationTestSuite) TestConvertToBody() {
+	suite.Nil(ConvertToBody(nil))
+
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"field2": {Rules: []*validation.Rule{
+				{Name: "nullable"},
+				{Name: "numeric"},
+			}},
+			"object": {Rules: []*validation.Rule{
+				{Name: "object"},
+			}},
+			"object.prop": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"object.subobject": {Rules: []*validation.Rule{
+				{Name: "object"},
+			}},
+			"object.subobject.prop2": {Rules: []*validation.Rule{
+				{Name: "numeric"},
+			}},
+			"object.subobject.prop3": {Rules: []*validation.Rule{
+				{Name: "string"},
+			}},
+			"object.subobject.prop4": {Rules: []*validation.Rule{
+				{Name: "bool"},
+			}},
+		},
+	}
+
+	bodyRef := ConvertToBody(rules)
+	suite.NotNil(bodyRef.Value)
+
+	suite.True(bodyRef.Value.Required)
+
+	content := bodyRef.Value.Content["application/json"]
+	suite.Contains(content.Schema.Value.Properties, "field1")
+	suite.Contains(content.Schema.Value.Properties, "field2")
+	suite.Contains(content.Schema.Value.Properties, "object")
+	suite.Contains(content.Schema.Value.Required, "field1")
+
+	object := content.Schema.Value.Properties["object"].Value
+	suite.Contains(object.Properties, "prop")
+	suite.Contains(object.Properties, "subobject")
+	suite.Contains(object.Required, "prop")
+
+	suite.Contains(object.Properties["subobject"].Value.Properties, "prop2")
+	suite.Contains(object.Properties["subobject"].Value.Properties, "prop3")
+	suite.Contains(object.Properties["subobject"].Value.Properties, "prop4")
+}
+
+func (suite *ValidationTestSuite) TestConvertToBodyEncoding() {
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"file": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "file"},
+				{Name: "mime", Params: []string{"application/json", "text/html"}},
+			}},
+		},
+	}
+
+	bodyRef := ConvertToBody(rules)
+	content := bodyRef.Value.Content["multipart/form-data"]
+	encoding := content.Encoding["file"]
+	suite.NotNil(encoding)
+	suite.Equal("application/json, text/html", encoding.ContentType)
+}
+
 func TestValidationSuite(t *testing.T) {
 	suite.Run(t, new(ValidationTestSuite))
 }
