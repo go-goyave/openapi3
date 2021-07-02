@@ -92,13 +92,7 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 				target.Properties = make(map[string]*openapi3.SchemaRef)
 			}
 
-			if existing, ok := target.Properties[name]; ok {
-				for k, v := range s.Properties {
-					existing.Value.Properties[k] = v
-				}
-			} else {
-				target.Properties[name] = &openapi3.SchemaRef{Value: s}
-			}
+			target.Properties[name] = &openapi3.SchemaRef{Value: s}
 			if field.IsRequired() {
 				target.Required = append(target.Required, name)
 			}

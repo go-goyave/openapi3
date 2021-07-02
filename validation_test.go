@@ -805,6 +805,74 @@ func (suite *ValidationTestSuite) TestConvertToBodyEncoding() {
 	suite.Equal("application/json, text/html", encoding.ContentType)
 }
 
+func (suite *ValidationTestSuite) TestConvertToQuery() {
+	suite.Nil(ConvertToQuery(nil))
+
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"field2": {Rules: []*validation.Rule{
+				{Name: "nullable"},
+				{Name: "numeric"},
+			}},
+			"object": {Rules: []*validation.Rule{
+				{Name: "object"},
+			}},
+			"object.prop": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"object.subobject": {Rules: []*validation.Rule{
+				{Name: "object"},
+			}},
+			"object.subobject.prop2": {Rules: []*validation.Rule{
+				{Name: "numeric"},
+			}},
+			"object.subobject.prop3": {Rules: []*validation.Rule{
+				{Name: "string"},
+			}},
+			"object.subobject.prop4": {Rules: []*validation.Rule{
+				{Name: "bool"},
+			}},
+			"file": {Rules: []*validation.Rule{
+				{Name: "file"},
+			}},
+		},
+	}
+
+	query := ConvertToQuery(rules)
+
+	field1 := findParam(query, "field1")
+	field2 := findParam(query, "field2")
+	object := findParam(query, "object")
+	suite.Nil(findParam(query, "prop"))
+	suite.Nil(findParam(query, "subobject"))
+	suite.Nil(findParam(query, "prop2"))
+	suite.Nil(findParam(query, "prop3"))
+	suite.Nil(findParam(query, "prop4"))
+	suite.Nil(findParam(query, "file"))
+
+	suite.NotNil(field1)
+	suite.NotNil(field2)
+	suite.NotNil(object)
+
+	suite.Contains(object.Value.Schema.Value.Required, "prop")
+	suite.True(field1.Value.Required)
+	suite.False(field2.Value.Required)
+}
+
+func findParam(query []*openapi3.ParameterRef, name string) *openapi3.ParameterRef {
+	for _, v := range query {
+		if v.Value.Name == name {
+			return v
+		}
+	}
+	return nil
+}
+
 func TestValidationSuite(t *testing.T) {
 	suite.Run(t, new(ValidationTestSuite))
 }
