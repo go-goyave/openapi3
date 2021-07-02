@@ -192,6 +192,62 @@ func (c testController) handler(resp *goyave.Response, req *goyave.Request) {
 	resp.Status(http.StatusOK)
 }
 
+func (suite *RouteTestSuite) TestGetParamSchema() {
+	spec := &openapi3.T{Components: openapi3.Components{Schemas: openapi3.Schemas{}}}
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/test/{param}/{id:[0-9]+}/{notint:[a-z0-9]+}", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+
+	// no pattern
+	schema := converter.getParamSchema("param", "", spec)
+	suite.Nil(schema.Value)
+	suite.Equal("#/components/schemas/paramString", schema.Ref)
+	suite.Contains(spec.Components.Schemas, "paramString")
+	ref := spec.Components.Schemas["paramString"]
+	suite.Empty(ref.Value.Pattern)
+	suite.Equal(refs.ParamSchemas["paramString"], schema)
+
+	// with int pattern
+	schema = converter.getParamSchema("id", "[0-9]+", spec)
+	suite.Nil(schema.Value)
+	suite.Equal("#/components/schemas/paramInteger", schema.Ref)
+	suite.Contains(spec.Components.Schemas, "paramInteger")
+	ref = spec.Components.Schemas["paramInteger"]
+	suite.Equal(ref.Value.Pattern, "[0-9]+")
+	suite.Equal(refs.ParamSchemas["paramInteger"], schema)
+
+	// with pattern
+	schema = converter.getParamSchema("notint", "[a-z0-9]+", spec)
+	suite.Nil(schema.Value)
+	suite.Equal("#/components/schemas/paramNotint", schema.Ref)
+	suite.Contains(spec.Components.Schemas, "paramNotint")
+	ref = spec.Components.Schemas["paramNotint"]
+	suite.Equal(ref.Value.Pattern, "[a-z0-9]+")
+	suite.Equal(refs.ParamSchemas["paramNotint"], schema)
+}
+
+func (suite *RouteTestSuite) TestGetParamSchemaCacheAndNaming() {
+	spec := &openapi3.T{Components: openapi3.Components{Schemas: openapi3.Schemas{}}}
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/{param1:[a-z0-9]+}/{param2:[a-z0-9]+}", HandlerTest)
+	converter := NewRouteConverter(route, refs)
+
+	ref := converter.getParamSchema("param1", "[a-z0-9]+", spec) // First pattern is now cached
+	cached := converter.getParamSchema("param1", "[a-z0-9]+", spec)
+	suite.Same(ref, cached)
+	suite.Contains(spec.Components.Schemas, "paramParam1")
+	suite.Contains(refs.ParamSchemas, "paramParam1")
+
+	route2 := router.Get("/{param1:[A-Z0-9]+}", HandlerTest) // Not the same pattern
+	converter2 := NewRouteConverter(route2, refs)
+	ref2 := converter2.getParamSchema("param1", "[A-Z0-9]+", spec)
+	suite.NotSame(ref, ref2)
+	suite.Contains(spec.Components.Schemas, "paramParam1.2")
+	suite.Contains(refs.ParamSchemas, "paramParam1.2")
+}
+
 func TestRouteSuite(t *testing.T) {
 	suite.Run(t, new(RouteTestSuite))
 }
