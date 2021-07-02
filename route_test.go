@@ -9,6 +9,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/suite"
 	"goyave.dev/goyave/v3"
+	"goyave.dev/goyave/v3/validation"
 )
 
 type RouteTestSuite struct {
@@ -303,6 +304,95 @@ func (suite *RouteTestSuite) TestConvertPathParameter() {
 	// No parameter should be added because they are already present
 	converter.convertPathParameters(path2, spec)
 	suite.Equal(lenBefore, len(path.Parameters))
+}
+
+func (suite *RouteTestSuite) TestConvertValidationRules() {
+	spec := &openapi3.T{
+		Components: openapi3.Components{
+			Schemas:    openapi3.Schemas{},
+			Parameters: openapi3.ParametersMap{},
+		},
+	}
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"field2": {Rules: []*validation.Rule{
+				{Name: "nullable"},
+				{Name: "numeric"},
+			}},
+		},
+	}
+
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Get("/test", HandlerTest).Validate(rules)
+	converter := NewRouteConverter(route, refs)
+	converter.funcName = "HandlerTest"
+
+	op := &openapi3.Operation{Parameters: openapi3.Parameters{}}
+	converter.convertValidationRules(http.MethodGet, op, spec)
+
+	suite.Contains(refs.QueryParameters, rules)
+	suite.Contains(spec.Components.Parameters, "HandlerTest-query-field1")
+	suite.Contains(spec.Components.Parameters, "HandlerTest-query-field2")
+	suite.NotNil(findQueryParamRef(refs.QueryParameters[rules], "#/components/parameters/HandlerTest-query-field1"))
+	suite.NotNil(findQueryParamRef(refs.QueryParameters[rules], "#/components/parameters/HandlerTest-query-field2"))
+
+	op = &openapi3.Operation{Parameters: openapi3.Parameters{}}
+	converter.convertValidationRules(http.MethodGet, op, spec)
+	suite.Equal(openapi3.Parameters(refs.QueryParameters[rules]), op.Parameters)
+}
+
+func (suite *RouteTestSuite) TestConvertValidationRulesWithBody() {
+	spec := &openapi3.T{
+		Components: openapi3.Components{
+			Schemas:       openapi3.Schemas{},
+			Parameters:    openapi3.ParametersMap{},
+			RequestBodies: openapi3.RequestBodies{},
+		},
+	}
+	rules := &validation.Rules{
+		Fields: validation.FieldMap{
+			"field1": {Rules: []*validation.Rule{
+				{Name: "required"},
+				{Name: "string"},
+			}},
+			"field2": {Rules: []*validation.Rule{
+				{Name: "nullable"},
+				{Name: "numeric"},
+			}},
+		},
+	}
+
+	refs := NewRefs()
+	router := goyave.NewRouter()
+	route := router.Post("/test", HandlerTest).Validate(rules)
+	converter := NewRouteConverter(route, refs)
+	converter.funcName = "HandlerTest"
+
+	op := &openapi3.Operation{Parameters: openapi3.Parameters{}}
+	converter.convertValidationRules(http.MethodPost, op, spec)
+
+	suite.Contains(spec.Components.RequestBodies, "HandlerTest")
+	suite.Contains(refs.RequestBodies, rules)
+	suite.Equal(refs.RequestBodies[rules].Ref, "#/components/requestBodies/HandlerTest")
+	suite.Same(op.RequestBody, refs.RequestBodies[rules])
+
+	op = &openapi3.Operation{Parameters: openapi3.Parameters{}}
+	converter.convertValidationRules(http.MethodPost, op, spec)
+	suite.Equal(refs.RequestBodies[rules], op.RequestBody)
+}
+
+func findQueryParamRef(query []*openapi3.ParameterRef, ref string) *openapi3.ParameterRef {
+	for _, v := range query {
+		if v.Ref == ref {
+			return v
+		}
+	}
+	return nil
 }
 
 func TestRouteSuite(t *testing.T) {
