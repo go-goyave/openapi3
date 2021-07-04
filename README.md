@@ -53,7 +53,7 @@ Then navigate to `http://localhost:8080/openapi` (provided you use the default p
 
 - [ ] Proper tooling
 - [x] Handler to serve the openapi3 UI
-- [ ] Tests
+- [x] Tests
 - [x] Better README
 
 ## License
