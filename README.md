@@ -49,13 +49,6 @@ openapi3.Serve(router, "/openapi", opts)
 
 Then navigate to `http://localhost:8080/openapi` (provided you use the default port).
 
-## TODO
-
-- [ ] Proper tooling
-- [x] Handler to serve the openapi3 UI
-- [x] Tests
-- [x] Better README
-
 ## License
 
 This package is MIT Licensed. Copyright (c) 2021 Jérémy LAMBERT (SystemGlitch)
