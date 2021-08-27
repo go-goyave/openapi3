@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"goyave.dev/goyave/v3"
+	"goyave.dev/goyave/v4"
 )
 
 var (
@@ -280,7 +280,7 @@ func (c *RouteConverter) readDescription() (string, string) {
 	var doc *ast.CommentGroup
 
 	ast.Inspect(astFile, func(n ast.Node) bool {
-		// Example output of "funcName" value for controller: goyave.dev/goyave/v3/auth.(*JWTController).Login-fm
+		// Example output of "funcName" value for controller: goyave.dev/goyave/v4/auth.(*JWTController).Login-fm
 		fn, ok := n.(*ast.FuncDecl)
 		if ok {
 			if fn.Recv != nil {

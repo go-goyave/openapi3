@@ -4,7 +4,7 @@ import (
 	"go/ast"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"goyave.dev/goyave/v3/validation"
+	"goyave.dev/goyave/v4/validation"
 )
 
 // Refs cache structure associating validation rules pointers to OpenAPI refs

@@ -8,8 +8,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/suite"
-	"goyave.dev/goyave/v3"
-	"goyave.dev/goyave/v3/validation"
+	"goyave.dev/goyave/v4"
+	"goyave.dev/goyave/v4/validation"
 )
 
 type RouteTestSuite struct {
@@ -83,7 +83,7 @@ func (suite *RouteTestSuite) TestParameterExists() {
 
 func (suite *RouteTestSuite) TestRulesRefName() {
 	converter := NewRouteConverter(&goyave.Route{}, NewRefs())
-	converter.funcName = "goyave.dev/goyave/v3/auth.(*JWTController).Login-fm"
+	converter.funcName = "goyave.dev/goyave/v4/auth.(*JWTController).Login-fm"
 
 	suite.Equal("auth.JWTController.Login-fm", converter.rulesRefName())
 }
@@ -315,11 +315,11 @@ func (suite *RouteTestSuite) TestConvertValidationRules() {
 	}
 	rules := &validation.Rules{
 		Fields: validation.FieldMap{
-			"field1": {Rules: []*validation.Rule{
+			"field1": &validation.Field{Rules: []*validation.Rule{
 				{Name: "required"},
 				{Name: "string"},
 			}},
-			"field2": {Rules: []*validation.Rule{
+			"field2": &validation.Field{Rules: []*validation.Rule{
 				{Name: "nullable"},
 				{Name: "numeric"},
 			}},
@@ -356,11 +356,11 @@ func (suite *RouteTestSuite) TestConvertValidationRulesWithBody() {
 	}
 	rules := &validation.Rules{
 		Fields: validation.FieldMap{
-			"field1": {Rules: []*validation.Rule{
+			"field1": &validation.Field{Rules: []*validation.Rule{
 				{Name: "required"},
 				{Name: "string"},
 			}},
-			"field2": {Rules: []*validation.Rule{
+			"field2": &validation.Field{Rules: []*validation.Rule{
 				{Name: "nullable"},
 				{Name: "numeric"},
 			}},
@@ -405,11 +405,11 @@ func (suite *RouteTestSuite) TestConvertOperation() {
 	}
 	rules := &validation.Rules{
 		Fields: validation.FieldMap{
-			"field1": {Rules: []*validation.Rule{
+			"field1": &validation.Field{Rules: []*validation.Rule{
 				{Name: "required"},
 				{Name: "string"},
 			}},
-			"field2": {Rules: []*validation.Rule{
+			"field2": &validation.Field{Rules: []*validation.Rule{
 				{Name: "nullable"},
 				{Name: "numeric"},
 			}},

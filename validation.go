@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"goyave.dev/goyave/v3/validation"
+	"goyave.dev/goyave/v4/validation"
 )
 
 // ConvertToBody convert validation.Rules to OpenAPI RequestBody.
@@ -22,7 +22,7 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 
 	schema := openapi3.NewObjectSchema()
 	for _, name := range sortKeys(rules) {
-		field := rules.Fields[name]
+		field := rules.Fields[name].(*validation.Field)
 		target := schema
 		if strings.Contains(name, ".") {
 			target, name = findParentSchema(schema, name)
@@ -83,7 +83,7 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
 	for _, name := range sortKeys(rules) {
-		field := rules.Fields[name]
+		field := rules.Fields[name].(*validation.Field)
 		s, _ := SchemaFromField(field)
 		if strings.Contains(name, ".") {
 			p, target, name := findParentSchemaQuery(parameters, name)
@@ -177,7 +177,7 @@ func HasRequired(rules *validation.Rules) bool {
 // one rule having the given name.
 func Has(rules *validation.Rules, ruleName string) bool {
 	for _, f := range rules.Fields {
-		for _, r := range f.Rules {
+		for _, r := range f.(*validation.Field).Rules {
 			if r.Name == ruleName {
 				return true
 			}
@@ -190,8 +190,9 @@ func Has(rules *validation.Rules, ruleName string) bool {
 // any required "file" rule.
 func HasOnlyOptionalFiles(rules *validation.Rules) bool {
 	for _, f := range rules.Fields {
-		for _, r := range f.Rules {
-			if r.Name == "file" && f.IsRequired() {
+		field := f.(*validation.Field)
+		for _, r := range field.Rules {
+			if r.Name == "file" && field.IsRequired() {
 				return false
 			}
 		}
@@ -199,11 +200,13 @@ func HasOnlyOptionalFiles(rules *validation.Rules) bool {
 	return true
 }
 
-func sortKeys(rules *validation.Rules) []string {
+func sortKeys(rules *validation.Rules) []string { // TODO remove this, not needed anymore
 	keys := make([]string, 0, len(rules.Fields))
 
 	for k := range rules.Fields {
-		keys = append(keys, k)
+		if k != validation.CurrentElement {
+			keys = append(keys, k)
+		}
 	}
 
 	sort.SliceStable(keys, func(i, j int) bool {

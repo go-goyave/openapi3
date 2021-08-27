@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"goyave.dev/goyave/v3"
-	"goyave.dev/goyave/v3/config"
+	"goyave.dev/goyave/v4"
+	"goyave.dev/goyave/v4/config"
 )
 
 // Generator for OpenAPI 3 specification based on Router.

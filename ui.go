@@ -5,8 +5,8 @@ import (
 	"text/template"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"goyave.dev/goyave/v3"
-	"goyave.dev/goyave/v3/config"
+	"goyave.dev/goyave/v4"
+	"goyave.dev/goyave/v4/config"
 )
 
 // UIOptions options for the SwaggerUI Handler.
