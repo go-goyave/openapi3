@@ -208,14 +208,7 @@ func addSchema(field *validation.Field, path *walk.Path, currentElement *openapi
 	}
 	switch path.Type {
 	case walk.PathTypeElement:
-		if element.Value == nil {
-			element.Value = schema
-		} else {
-			mergo.Merge(element.Value, schema)
-		}
-		if element.Value.Type == "array" && (element.Value.Items == nil || element.Value.Type == "") {
-			setArrayType(field, element)
-		}
+		mergo.Merge(element.Value, schema)
 		if field.IsRequired() && path.Name != "" {
 			currentElement.Value.Required = append(currentElement.Value.Required, path.Name)
 		}
@@ -229,15 +222,6 @@ func addSchema(field *validation.Field, path *walk.Path, currentElement *openapi
 		element.Value.Type = "object"
 		addSchema(field, path.Next, element, schema)
 	}
-}
-
-func setArrayType(field *validation.Field, element *openapi3.SchemaRef) {
-	rule := findFirstTypeRule(field)
-	arrayType := ""
-	if len(rule.Params) > 0 {
-		arrayType = ruleNameToType(rule.Params[0])
-	}
-	element.Value.Items = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: arrayType}}
 }
 
 func ruleNameToType(name string) string {

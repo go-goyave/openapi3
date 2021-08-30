@@ -524,6 +524,49 @@ func (suite *ValidationTestSuite) TestGenerateSchemaArray() {
 	suite.NotNil(items)
 	suite.Equal("number", items.Value.Type)
 	suite.Equal(float64(4), *items.Value.Max)
+
+	rules = (validation.RuleSet{
+		"array":     validation.List{"array"},
+		"array[]":   validation.List{"array", "max:3"},
+		"array[][]": validation.List{"array:numeric"},
+	}).AsRules()
+
+	schema, _ = SchemaFromField(rules.Fields["array"].(*validation.Field))
+	suite.Equal("array", schema.Type)
+	items = schema.Items.Value.Items.Value.Items
+	suite.NotNil(items)
+	suite.Equal("number", items.Value.Type)
+}
+
+func (suite *ValidationTestSuite) TestGenerateSchemaArrayOfObject() {
+	rules := (validation.RuleSet{
+		"array":         validation.List{"array"},
+		"array[].field": validation.List{"numeric", "max:3"},
+	}).AsRules()
+
+	body := ConvertToBody(rules)
+	schema := body.Value.Content["application/json"].Schema.Value
+
+	three := 3.0
+	expected := &openapi3.Schema{
+		Type: "object",
+		Properties: openapi3.Schemas{
+			"array": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: "array",
+				Items: &openapi3.SchemaRef{Value: &openapi3.Schema{
+					Type: "object",
+					Properties: openapi3.Schemas{
+						"field": &openapi3.SchemaRef{Value: &openapi3.Schema{
+							Type: "number",
+							Max:  &three,
+						}},
+					},
+				}},
+			}},
+		},
+	}
+
+	suite.Equal(expected, schema)
 }
 
 func (suite *ValidationTestSuite) TestGenerateSchemaFile() {
