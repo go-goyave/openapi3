@@ -25,6 +25,8 @@ Just from reading your code, this generator is able to fill an OpenAPI 3 specifi
 go get -u goyave.dev/openapi3
 ```
 
+**If you are using Goyave v3**: `go get -u goyave.dev/openapi3@v0.1.0`
+
 Add the following at the end of your main route registrer:
 ```go
 spec := openapi3.NewGenerator().Generate(router)

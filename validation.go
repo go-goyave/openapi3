@@ -1,12 +1,14 @@
 package openapi3
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/imdario/mergo"
+	"goyave.dev/goyave/v4/helper"
+	"goyave.dev/goyave/v4/helper/walk"
 	"goyave.dev/goyave/v4/validation"
 )
 
@@ -21,21 +23,10 @@ func ConvertToBody(rules *validation.Rules) *openapi3.RequestBodyRef {
 	encodings := map[string]*openapi3.Encoding{}
 
 	schema := openapi3.NewObjectSchema()
-	for _, name := range sortKeys(rules) {
-		field := rules.Fields[name].(*validation.Field)
-		target := schema
-		if strings.Contains(name, ".") {
-			target, name = findParentSchema(schema, name)
-			if target.Properties == nil {
-				target.Properties = make(map[string]*openapi3.SchemaRef)
-			}
-		}
+	for name, f := range rules.Fields {
+		field := f.(*validation.Field)
 		s, encoding := SchemaFromField(field)
-
-		target.Properties[name] = &openapi3.SchemaRef{Value: s}
-		if field.IsRequired() {
-			target.Required = append(target.Required, name)
-		}
+		addSchema(field, field.Path, &openapi3.SchemaRef{Value: schema}, s)
 		if encoding != nil {
 			// TODO encoding should be ignored for objects
 			encodings[name] = encoding
@@ -81,28 +72,20 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 
 	rules = rules.AsRules() // Ensure rules are checked
 
+	tmpSchema := openapi3.NewObjectSchema()
 	parameters := make([]*openapi3.ParameterRef, 0, len(rules.Fields))
-	for _, name := range sortKeys(rules) {
-		field := rules.Fields[name].(*validation.Field)
+	for _, f := range rules.Fields {
+		field := f.(*validation.Field)
 		s, _ := SchemaFromField(field)
-		if strings.Contains(name, ".") {
-			p, target, name := findParentSchemaQuery(parameters, name)
-			parameters = p
-			if target.Properties == nil {
-				target.Properties = make(map[string]*openapi3.SchemaRef)
-			}
+		addSchema(field, field.Path, &openapi3.SchemaRef{Value: tmpSchema}, s)
+	}
 
-			target.Properties[name] = &openapi3.SchemaRef{Value: s}
-			if field.IsRequired() {
-				target.Required = append(target.Required, name)
-			}
-			continue
-		}
+	for name, s := range tmpSchema.Properties {
 		param := openapi3.NewQueryParameter(name)
-		param.Schema = &openapi3.SchemaRef{Value: s}
+		param.Schema = s
 		format := param.Schema.Value.Format
 		if format != "binary" && format != "bytes" {
-			param.Required = field.IsRequired()
+			param.Required = helper.ContainsStr(tmpSchema.Required, name)
 			parameters = append(parameters, &openapi3.ParameterRef{Value: param})
 		}
 	}
@@ -112,12 +95,12 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 
 // SchemaFromField convert a validation.Field to OpenAPI Schema.
 func SchemaFromField(field *validation.Field) (*openapi3.Schema, *openapi3.Encoding) {
-	return generateSchema(field, "", 0)
+	return generateSchema(field, "")
 }
 
-func generateSchema(field *validation.Field, typeFallback string, arrayDimension uint8) (*openapi3.Schema, *openapi3.Encoding) {
+func generateSchema(field *validation.Field, typeFallback string) (*openapi3.Schema, *openapi3.Encoding) {
 	s := openapi3.NewSchema()
-	if rule := findFirstTypeRule(field, arrayDimension); rule != nil {
+	if rule := findFirstTypeRule(field); rule != nil {
 		switch rule.Name {
 		case "numeric":
 			s.Type = "number"
@@ -128,27 +111,25 @@ func generateSchema(field *validation.Field, typeFallback string, arrayDimension
 			s.Format = "binary"
 		case "array":
 			s.Type = "array"
-			itemsTypeFallback := ""
+			itemsType := ""
 			if len(rule.Params) > 0 {
-				itemsTypeFallback = ruleNameToType(rule.Params[0])
+				itemsType = ruleNameToType(rule.Params[0])
 			}
-			schema, _ := generateSchema(field, itemsTypeFallback, arrayDimension+1)
-			if schema.Type == "" {
-				schema.Type = "string"
+			if field.Elements != nil {
+				items, _ := generateSchema(field.Elements, itemsType)
+				s.Items = &openapi3.SchemaRef{Value: items}
+			} else {
+				s.Items = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: itemsType}}
 			}
-			s.Items = &openapi3.SchemaRef{Value: schema}
 		default:
 			s.Type = rule.Name
 		}
-	} else if typeFallback != "" {
+	} else {
 		s.Type = typeFallback
 	}
 
 	var encoding *openapi3.Encoding
 	for _, r := range field.Rules {
-		if r.ArrayDimension != arrayDimension {
-			continue
-		}
 		if (r.Name == "image" || r.Name == "mime") && encoding == nil {
 			encoding = openapi3.NewEncoding()
 		}
@@ -162,21 +143,24 @@ func generateSchema(field *validation.Field, typeFallback string, arrayDimension
 }
 
 // HasFile returns true if the given set of rules contains at least
-// one "file" rule.
+// one "file" rule, ignoring fields inside objects.
 func HasFile(rules *validation.Rules) bool {
 	return Has(rules, "file")
 }
 
 // HasRequired returns true if the given set of rules contains at least
-// one "required" rule.
+// one "required" rule, ignoring fields inside objects.
 func HasRequired(rules *validation.Rules) bool {
 	return Has(rules, "required")
 }
 
 // Has returns true if the given set of rules contains at least
-// one rule having the given name.
+// one rule having the given name, ignoring fields inside objects.
 func Has(rules *validation.Rules, ruleName string) bool {
-	for _, f := range rules.Fields {
+	for name, f := range rules.Fields {
+		if strings.Contains(name, ".") {
+			continue
+		}
 		for _, r := range f.(*validation.Field).Rules {
 			if r.Name == ruleName {
 				return true
@@ -200,74 +184,60 @@ func HasOnlyOptionalFiles(rules *validation.Rules) bool {
 	return true
 }
 
-func sortKeys(rules *validation.Rules) []string { // TODO remove this, not needed anymore
-	keys := make([]string, 0, len(rules.Fields))
-
-	for k := range rules.Fields {
-		if k != validation.CurrentElement {
-			keys = append(keys, k)
-		}
-	}
-
-	sort.SliceStable(keys, func(i, j int) bool {
-		return strings.Count(keys[i], ".") < strings.Count(keys[j], ".")
-	})
-
-	return keys
-}
-
-func findFirstTypeRule(field *validation.Field, arrayDimension uint8) *validation.Rule {
+func findFirstTypeRule(field *validation.Field) *validation.Rule {
 	for _, rule := range field.Rules {
-		if (rule.IsType() || rule.Name == "file" || rule.Name == "array") && rule.ArrayDimension == arrayDimension {
+		if rule.IsType() || rule.Name == "file" || rule.Name == "array" {
 			return rule
 		}
 	}
 	return nil
 }
 
-func findParentSchema(schema *openapi3.Schema, name string) (*openapi3.Schema, string) {
-	segments := strings.Split(name, ".")
-	for _, n := range segments[:len(segments)-1] {
-		ref, ok := schema.Properties[n]
-		if !ok {
-			ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
-			schema.Properties[n] = ref
+func addSchema(field *validation.Field, path *walk.Path, currentElement *openapi3.SchemaRef, schema *openapi3.Schema) {
+	element := currentElement
+	if path.Name != "" {
+		if currentElement.Value.Properties == nil {
+			currentElement.Value.Properties = make(map[string]*openapi3.SchemaRef)
 		}
-		schema = ref.Value
+		ref, ok := currentElement.Value.Properties[path.Name]
+		if !ok {
+			ref = &openapi3.SchemaRef{Value: &openapi3.Schema{}}
+			currentElement.Value.Properties[path.Name] = ref
+		}
+		element = ref
 	}
-
-	return schema, segments[len(segments)-1]
+	switch path.Type {
+	case walk.PathTypeElement:
+		if element.Value == nil {
+			element.Value = schema
+		} else {
+			mergo.Merge(element.Value, schema)
+		}
+		if element.Value.Type == "array" && (element.Value.Items == nil || element.Value.Type == "") {
+			setArrayType(field, element)
+		}
+		if field.IsRequired() && path.Name != "" {
+			currentElement.Value.Required = append(currentElement.Value.Required, path.Name)
+		}
+	case walk.PathTypeArray:
+		element.Value.Type = "array"
+		if element.Value.Items == nil {
+			element.Value.Items = &openapi3.SchemaRef{Value: &openapi3.Schema{}}
+		}
+		addSchema(field, path.Next, element.Value.Items, schema)
+	case walk.PathTypeObject:
+		element.Value.Type = "object"
+		addSchema(field, path.Next, element, schema)
+	}
 }
 
-func findParentSchemaQuery(parameters openapi3.Parameters, name string) (openapi3.Parameters, *openapi3.Schema, string) {
-	segments := strings.Split(name, ".")
-	var param *openapi3.ParameterRef
-	for _, p := range parameters {
-		if p.Value.Name == segments[0] {
-			param = p
-			break
-		}
+func setArrayType(field *validation.Field, element *openapi3.SchemaRef) {
+	rule := findFirstTypeRule(field)
+	arrayType := ""
+	if len(rule.Params) > 0 {
+		arrayType = ruleNameToType(rule.Params[0])
 	}
-	if param == nil {
-		p := openapi3.NewQueryParameter(segments[0])
-		p.Schema = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
-		param = &openapi3.ParameterRef{Value: p}
-		parameters = append(parameters, param)
-	}
-
-	schema := param.Value.Schema.Value
-	if len(segments) > 1 {
-		for _, n := range segments[1 : len(segments)-1] {
-			ref, ok := schema.Properties[n]
-			if !ok {
-				ref = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
-				schema.Properties[n] = ref
-			}
-			schema = ref.Value
-		}
-	}
-
-	return parameters, schema, segments[len(segments)-1]
+	element.Value.Items = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: arrayType}}
 }
 
 func ruleNameToType(name string) string {

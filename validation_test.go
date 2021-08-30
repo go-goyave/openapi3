@@ -88,6 +88,12 @@ func (suite *ValidationTestSuite) TestHasRequired() {
 					{Name: "bool"},
 				},
 			},
+			"object.field": &validation.Field{
+				Rules: []*validation.Rule{
+					{Name: "required"},
+					{Name: "numeric"},
+				},
+			},
 		},
 	}).AsRules()
 
@@ -133,17 +139,6 @@ func (suite *ValidationTestSuite) TestHasOnlyOptionalFiles() {
 	suite.False(HasOnlyOptionalFiles(rules))
 }
 
-func (suite *ValidationTestSuite) TestSortKeys() {
-	rules := (&validation.RuleSet{
-		"field1.field2":        validation.List{},
-		"field1.field2.field3": validation.List{},
-		"field1":               validation.List{},
-	}).AsRules()
-
-	keys := sortKeys(rules)
-	suite.Equal([]string{"field1", "field1.field2", "field1.field2.field3"}, keys)
-}
-
 func (suite *ValidationTestSuite) TestFindFirstTypeRule() {
 	rules := (&validation.Rules{
 		Fields: validation.FieldMap{
@@ -165,12 +160,6 @@ func (suite *ValidationTestSuite) TestFindFirstTypeRule() {
 					{Name: "array"},
 				},
 			},
-			"fieldArrayDim": &validation.Field{ // TODO fix this test
-				Rules: []*validation.Rule{
-					{Name: "required"},
-					{Name: "string" /* , ArrayDimension: 1 */},
-				},
-			},
 			"fieldNoType": &validation.Field{
 				Rules: []*validation.Rule{
 					{Name: "required"},
@@ -179,11 +168,10 @@ func (suite *ValidationTestSuite) TestFindFirstTypeRule() {
 		},
 	}).AsRules()
 
-	suite.Equal(rules.Fields["fieldString"].Rules[1], findFirstTypeRule(rules.Fields["fieldString"], 0))
-	suite.Equal(rules.Fields["fieldFile"].Rules[1], findFirstTypeRule(rules.Fields["fieldFile"], 0))
-	suite.Equal(rules.Fields["fieldArray"].Rules[1], findFirstTypeRule(rules.Fields["fieldArray"], 0))
-	suite.Equal(rules.Fields["fieldArrayDim"].Rules[1], findFirstTypeRule(rules.Fields["fieldArrayDim"], 1))
-	suite.Nil(findFirstTypeRule(rules.Fields["fieldNoType"], 0))
+	suite.Equal(rules.Fields["fieldString"].(*validation.Field).Rules[1], findFirstTypeRule(rules.Fields["fieldString"].(*validation.Field)))
+	suite.Equal(rules.Fields["fieldFile"].(*validation.Field).Rules[1], findFirstTypeRule(rules.Fields["fieldFile"].(*validation.Field)))
+	suite.Equal(rules.Fields["fieldArray"].(*validation.Field).Rules[1], findFirstTypeRule(rules.Fields["fieldArray"].(*validation.Field)))
+	suite.Nil(findFirstTypeRule(rules.Fields["fieldNoType"].(*validation.Field)))
 }
 
 func (suite *ValidationTestSuite) TestRuleNameToType() {
@@ -467,74 +455,6 @@ func (suite *ValidationTestSuite) TestDateRuleConverter() {
 	suite.Equal("date-time", schema.Format)
 }
 
-func (suite *ValidationTestSuite) TestParentSchema() {
-	schema := openapi3.NewObjectSchema()
-
-	prop1 := openapi3.NewObjectSchema()
-	prop2 := openapi3.NewObjectSchema()
-	prop3 := openapi3.NewStringSchema()
-
-	prop2.Properties["prop3"] = &openapi3.SchemaRef{Value: prop3}
-	prop1.Properties["prop2"] = &openapi3.SchemaRef{Value: prop2}
-	schema.Properties["prop1"] = &openapi3.SchemaRef{Value: prop1}
-
-	parent, name := findParentSchema(schema, "prop1.prop2.prop3")
-	suite.Same(prop2, parent)
-	suite.Equal("prop3", name)
-
-	parent, name = findParentSchema(schema, "prop1.prop2.prop4.prop5")
-	suite.Same(prop2.Properties["prop4"].Value, parent)
-	suite.Equal("prop5", name)
-}
-
-func (suite *ValidationTestSuite) TestParentSchemaQuery() {
-	parameters := make(openapi3.Parameters, 0, 3)
-
-	param1 := openapi3.NewObjectSchema()
-	param2 := openapi3.NewStringSchema()
-	prop1 := openapi3.NewObjectSchema()
-	prop2 := openapi3.NewObjectSchema()
-	prop3 := openapi3.NewStringSchema()
-
-	prop2.Properties["prop3"] = &openapi3.SchemaRef{Value: prop3}
-	prop1.Properties["prop2"] = &openapi3.SchemaRef{Value: prop2}
-	param1.Properties["prop1"] = &openapi3.SchemaRef{Value: prop1}
-
-	parameters = append(parameters, &openapi3.ParameterRef{
-		Value: &openapi3.Parameter{
-			Name:   "param1",
-			Schema: &openapi3.SchemaRef{Value: param1}},
-	})
-	parameters = append(parameters, &openapi3.ParameterRef{
-		Value: &openapi3.Parameter{
-			Name:   "param2",
-			Schema: &openapi3.SchemaRef{Value: param2}},
-	})
-
-	p, target, name := findParentSchemaQuery(parameters, "param2")
-	suite.Equal(parameters, p)
-	suite.Same(param2, target)
-	suite.Equal("param2", name)
-
-	p, target, name = findParentSchemaQuery(parameters, "param3")
-	suite.NotNil(target)
-	suite.Len(p, 3)
-	suite.Equal("param3", name)
-
-	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.prop2")
-	suite.Same(prop1, target)
-	suite.Equal("prop2", name)
-
-	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.newprop.prop")
-	suite.Same(prop1.Properties["newprop"].Value, target)
-	suite.Equal("prop", name)
-
-	_, target, name = findParentSchemaQuery(parameters, "param1.prop1.prop2.prop3")
-	suite.Same(prop2, target)
-	suite.Equal("prop3", name)
-
-}
-
 func checkField(field *validation.Field) {
 	// This is required so the field can be checked and
 	// isNullable and such can be cached
@@ -580,32 +500,15 @@ func (suite *ValidationTestSuite) TestGenerateSchema() {
 	suite.Equal("boolean", schema.Type)
 }
 
-func (suite *ValidationTestSuite) TestGenerateSchemaTypeFallback() {
-	field := &validation.Field{
-		Rules: []*validation.Rule{
-			{Name: "min", Params: []string{"5"}},
-			{Name: "max", Params: []string{"10"}},
-		},
-	}
-	checkField(field)
-	schema, encoding := generateSchema(field, "fallback", 0)
-	suite.Nil(encoding)
-	suite.Equal("fallback", schema.Type)
-}
-
 func (suite *ValidationTestSuite) TestGenerateSchemaArray() {
-	field := &validation.Field{
-		Rules: []*validation.Rule{
-			{Name: "array"},
-			{Name: "array", ArrayDimension: 1}, // TODO fix this test
-			{Name: "array", Params: []string{"numeric"}, ArrayDimension: 2},
-			{Name: "max", Params: []string{"3"}, ArrayDimension: 1},
-			{Name: "max", Params: []string{"4"}, ArrayDimension: 3},
-		},
-	}
-	checkField(field)
+	rules := (validation.RuleSet{
+		"array":       validation.List{"array"},
+		"array[]":     validation.List{"array", "max:3"},
+		"array[][]":   validation.List{"array:numeric"},
+		"array[][][]": validation.List{"max:4"},
+	}).AsRules()
 
-	schema, _ := SchemaFromField(field)
+	schema, _ := SchemaFromField(rules.Fields["array"].(*validation.Field))
 	suite.Equal("array", schema.Type)
 
 	items := schema.Items
@@ -621,15 +524,6 @@ func (suite *ValidationTestSuite) TestGenerateSchemaArray() {
 	suite.NotNil(items)
 	suite.Equal("number", items.Value.Type)
 	suite.Equal(float64(4), *items.Value.Max)
-
-	// No array type fallback
-	field = &validation.Field{Rules: []*validation.Rule{{Name: "array"}}}
-	checkField(field)
-	schema, _ = SchemaFromField(field)
-	suite.Equal("array", schema.Type)
-	items = schema.Items
-	suite.NotNil(items)
-	suite.Equal("string", items.Value.Type)
 }
 
 func (suite *ValidationTestSuite) TestGenerateSchemaFile() {
