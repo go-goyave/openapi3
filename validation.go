@@ -7,8 +7,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/imdario/mergo"
-	"goyave.dev/goyave/v4/helper"
-	"goyave.dev/goyave/v4/helper/walk"
+	"goyave.dev/goyave/v4/util/sliceutil"
+	"goyave.dev/goyave/v4/util/walk"
 	"goyave.dev/goyave/v4/validation"
 )
 
@@ -85,7 +85,7 @@ func ConvertToQuery(rules *validation.Rules) []*openapi3.ParameterRef {
 		param.Schema = s
 		format := param.Schema.Value.Format
 		if format != "binary" && format != "bytes" {
-			param.Required = helper.ContainsStr(tmpSchema.Required, name)
+			param.Required = sliceutil.ContainsStr(tmpSchema.Required, name)
 			parameters = append(parameters, &openapi3.ParameterRef{Value: param})
 		}
 	}

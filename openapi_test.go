@@ -45,6 +45,7 @@ func TestOpenAPISuite(t *testing.T) {
 				"name": "Generator"
 			},
 			"server": {
+				"protocol": "http",
 				"domain": "goyave.dev",
 				"port": 80
 			}
