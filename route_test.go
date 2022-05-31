@@ -151,7 +151,7 @@ func (suite *RouteTestSuite) TestReadDescriptionStruct() {
 	funcName, description := converter.readDescription()
 	suite.Equal("goyave.dev/openapi3.(*testController).handlerStar-fm", funcName)
 	suite.Empty(description)
-	suite.Contains(refs.HandlerDocs, pc)
+	suite.Contains(refs.HandlerDocs, pc) // FIXME go 1.18
 
 	ctrl2 := testController{}
 	route = router.Get("/test", ctrl2.handler)
@@ -160,7 +160,7 @@ func (suite *RouteTestSuite) TestReadDescriptionStruct() {
 	funcName, description = converter.readDescription()
 	suite.Equal("goyave.dev/openapi3.testController.handler-fm", funcName)
 	suite.Empty(description)
-	suite.Contains(refs.HandlerDocs, pc2)
+	suite.Contains(refs.HandlerDocs, pc2) // FIXME go 1.18
 }
 
 func (suite *RouteTestSuite) TestReadDescriptionCached() {

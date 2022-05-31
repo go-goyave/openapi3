@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"goyave.dev/goyave/v4"
 )
 
@@ -183,7 +185,7 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *op
 func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3.T) *openapi3.SchemaRef {
 	schema := openapi3.NewStringSchema()
 	schema.Pattern = format
-	originalSchemaName := "param" + strings.Title(paramName)
+	originalSchemaName := "param" + cases.Title(language.AmericanEnglish).String(paramName)
 	schemaName := originalSchemaName
 	if format == "" {
 		schemaName = "paramString"
