@@ -208,7 +208,7 @@ func (c testController) handler(resp *goyave.Response, req *goyave.Request) {
 }
 
 func (suite *RouteTestSuite) TestGetParamSchema() {
-	spec := &openapi3.T{Components: openapi3.Components{Schemas: openapi3.Schemas{}}}
+	spec := &openapi3.T{Components: &openapi3.Components{Schemas: openapi3.Schemas{}}}
 	refs := NewRefs()
 	router := goyave.NewRouter()
 	route := router.Get("/test/{param}/{id:[0-9]+}/{notint:[a-z0-9]+}", HandlerTest)
@@ -243,7 +243,7 @@ func (suite *RouteTestSuite) TestGetParamSchema() {
 }
 
 func (suite *RouteTestSuite) TestGetParamSchemaCacheAndNaming() {
-	spec := &openapi3.T{Components: openapi3.Components{Schemas: openapi3.Schemas{}}}
+	spec := &openapi3.T{Components: &openapi3.Components{Schemas: openapi3.Schemas{}}}
 	refs := NewRefs()
 	router := goyave.NewRouter()
 	route := router.Get("/{param1:[a-z0-9]+}/{param2:[a-z0-9]+}", HandlerTest)
@@ -265,7 +265,7 @@ func (suite *RouteTestSuite) TestGetParamSchemaCacheAndNaming() {
 
 func (suite *RouteTestSuite) TestConvertPathParameter() {
 	spec := &openapi3.T{
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:    openapi3.Schemas{},
 			Parameters: openapi3.ParametersMap{},
 		},
@@ -322,7 +322,7 @@ func (suite *RouteTestSuite) TestConvertPathParameter() {
 
 func (suite *RouteTestSuite) TestConvertValidationRules() {
 	spec := &openapi3.T{
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:    openapi3.Schemas{},
 			Parameters: openapi3.ParametersMap{},
 		},
@@ -362,7 +362,7 @@ func (suite *RouteTestSuite) TestConvertValidationRules() {
 
 func (suite *RouteTestSuite) TestConvertValidationRulesWithBody() {
 	spec := &openapi3.T{
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:       openapi3.Schemas{},
 			Parameters:    openapi3.ParametersMap{},
 			RequestBodies: openapi3.RequestBodies{},
@@ -411,7 +411,7 @@ func findQueryParamRef(query []*openapi3.ParameterRef, ref string) *openapi3.Par
 
 func (suite *RouteTestSuite) TestConvertOperation() {
 	spec := &openapi3.T{
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:       openapi3.Schemas{},
 			Parameters:    openapi3.ParametersMap{},
 			RequestBodies: openapi3.RequestBodies{},
@@ -447,7 +447,7 @@ func (suite *RouteTestSuite) TestConvertOperation() {
 
 func (suite *RouteTestSuite) TestConvert() {
 	spec := &openapi3.T{
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:       openapi3.Schemas{},
 			Parameters:    openapi3.ParametersMap{},
 			RequestBodies: openapi3.RequestBodies{},
