@@ -123,7 +123,10 @@ func Serve(router *goyave.Router, uri string, opts *UIOptions) {
 	tmpl := template.Must(template.New("swaggerui").Parse(uiTemplate))
 
 	buf := bytes.NewBuffer(nil)
-	tmpl.Execute(buf, opts)
+	err := tmpl.Execute(buf, opts)
+	if err != nil {
+		panic(err)
+	}
 	b := buf.Bytes()
 
 	r.Get("/", func(resp *goyave.Response, req *goyave.Request) {

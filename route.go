@@ -169,15 +169,14 @@ func (c *RouteConverter) convertPathParameters(path *openapi3.PathItem, spec *op
 				}
 				path.Parameters = append(path.Parameters, paramRef)
 				break
-			} else {
-				param := openapi3.NewPathParameter(p)
-				param.Schema = schemaRef
-				spec.Components.Parameters[paramName] = &openapi3.ParameterRef{Value: param}
-				paramRef := &openapi3.ParameterRef{Ref: "#/components/parameters/" + paramName}
-				c.refs.Parameters[paramName] = paramRef
-				path.Parameters = append(path.Parameters, paramRef)
-				break
 			}
+			param := openapi3.NewPathParameter(p)
+			param.Schema = schemaRef
+			spec.Components.Parameters[paramName] = &openapi3.ParameterRef{Value: param}
+			paramRef := &openapi3.ParameterRef{Ref: "#/components/parameters/" + paramName}
+			c.refs.Parameters[paramName] = paramRef
+			path.Parameters = append(path.Parameters, paramRef)
+			break
 		}
 	}
 }
@@ -201,9 +200,8 @@ func (c *RouteConverter) getParamSchema(paramName, format string, spec *openapi3
 				i++
 				schemaName = fmt.Sprintf("%s.%d", originalSchemaName, i)
 				continue
-			} else {
-				return cached
 			}
+			return cached
 		}
 		break
 	}

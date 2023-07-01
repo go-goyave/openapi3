@@ -208,7 +208,10 @@ func addSchema(field *validation.Field, path *walk.Path, currentElement *openapi
 	}
 	switch path.Type {
 	case walk.PathTypeElement:
-		mergo.Merge(element.Value, schema)
+		err := mergo.Merge(element.Value, schema)
+		if err != nil {
+			panic(err)
+		}
 		if field.IsRequired() && path.Name != "" {
 			currentElement.Value.Required = append(currentElement.Value.Required, path.Name)
 		}

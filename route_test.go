@@ -193,17 +193,17 @@ func (suite *RouteTestSuite) TestReadDescriptionCached() {
 }
 
 // HandlerTest a test handler for AST reading
-func HandlerTest(resp *goyave.Response, req *goyave.Request) {
+func HandlerTest(resp *goyave.Response, _ *goyave.Request) {
 	resp.Status(http.StatusOK)
 }
 
 type testController struct{}
 
-func (c *testController) handlerStar(resp *goyave.Response, req *goyave.Request) {
+func (c *testController) handlerStar(resp *goyave.Response, _ *goyave.Request) {
 	resp.Status(http.StatusOK)
 }
 
-func (c testController) handler(resp *goyave.Response, req *goyave.Request) {
+func (c testController) handler(resp *goyave.Response, _ *goyave.Request) {
 	resp.Status(http.StatusOK)
 }
 
