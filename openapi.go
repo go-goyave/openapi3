@@ -43,7 +43,7 @@ func (g *Generator) Generate(router *goyave.Router) *openapi3.T {
 		},
 		Paths:   make(openapi3.Paths),
 		Servers: makeServers(),
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Schemas:       make(openapi3.Schemas),
 			RequestBodies: make(openapi3.RequestBodies),
 			Responses:     make(openapi3.Responses),
