@@ -51,7 +51,7 @@ const (
     window.onload = function() {
       // Begin Swagger UI call region
       const ui = SwaggerUIBundle({
-        spec: {"components":{},"info":{"title":"Test","version":"0.0.0"},"openapi":"3.0.0","paths":{}},
+        spec: {"info":{"title":"Test","version":"0.0.0"},"openapi":"3.0.0","paths":{}},
         dom_id: '#swagger-ui',
         deepLinking: true,
         presets: [
@@ -83,7 +83,7 @@ func (suite *UITestSuite) TestNewOptions() {
 	}
 	opts := NewUIOptions(spec)
 	suite.NotNil(opts)
-	suite.Equal(`{"components":{},"info":{"title":"Test","version":"0.0.0"},"openapi":"3.0.0","paths":{}}`, opts.Spec)
+	suite.Equal(`{"info":{"title":"Test","version":"0.0.0"},"openapi":"3.0.0","paths":{}}`, opts.Spec)
 	suite.NotEmpty(opts.Favicon16)
 	suite.NotEmpty(opts.Favicon32)
 	suite.NotEmpty(opts.BundleURL)
