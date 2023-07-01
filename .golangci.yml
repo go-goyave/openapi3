@@ -24,7 +24,6 @@ linters:
     - bodyclose
     - govet
     - unused
-  disable:
     - errcheck
   disable-all: false
   fast: false
